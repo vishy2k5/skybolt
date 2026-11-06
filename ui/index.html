@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Skybolt</title>
+<link rel="stylesheet" href="/style.css">
+</head><body>
+<div id="app">
+  <header id="top">
+    <div id="clock"><div id="time"></div><div id="date"></div></div>
+    <button id="wx-chip" aria-label="Open weather"></button>
+    <div class="spacer"></div>
+    <nav id="views">
+      <button data-view="day">Day</button><button data-view="week">Week</button><button data-view="month">Month</button>
+    </nav>
+    <button id="chores-btn">✓ Chores<span class="badge" hidden></span></button>
+    <button id="gear-btn" aria-label="Settings">⚙</button>
+    <button id="add-btn" class="primary" aria-label="Add event">+</button>
+  </header>
+  <div id="sub">
+    <button id="prev" aria-label="Previous">‹</button>
+    <button id="next" aria-label="Next">›</button>
+    <h2 id="range"></h2>
+    <button id="today">Today</button>
+  </div>
+  <main id="cal"></main>
+</div>
+<div id="overlay"></div>
+<script type="module" src="/js/main.js"></script>
+</body></html>
