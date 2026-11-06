@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS events (
     location    TEXT NOT NULL DEFAULT '',
     calendar_id TEXT NOT NULL DEFAULT 'local',
     member_id   INTEGER REFERENCES members(id) ON DELETE SET NULL,
+    repeat      TEXT NOT NULL DEFAULT 'none',  -- none|daily|weekly|monthly|yearly
     google_id   TEXT UNIQUE,            -- set once synced with Google
     etag        TEXT,
     updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -45,6 +46,8 @@ def connect(path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA)
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(events)")}
-    if "member_id" not in cols:  # DB created before members existed
-        conn.execute("ALTER TABLE events ADD COLUMN member_id INTEGER REFERENCES members(id) ON DELETE SET NULL")
+    for col, ddl in (("member_id", "INTEGER REFERENCES members(id) ON DELETE SET NULL"),
+                     ("repeat", "TEXT NOT NULL DEFAULT 'none'")):
+        if col not in cols:  # DB created before this column existed
+            conn.execute(f"ALTER TABLE events ADD COLUMN {col} {ddl}")
     return conn

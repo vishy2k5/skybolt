@@ -9,6 +9,7 @@ async function call(method, url, body) {
 }
 export const api = {
   events: (start, end) => call('GET', `/api/events?start=${start}&end=${end}`),
+  event: id => call('GET', `/api/events/${id}`),
   saveEvent: (e, id) => id ? call('PUT', `/api/events/${id}`, e) : call('POST', '/api/events', e),
   deleteEvent: id => call('DELETE', `/api/events/${id}`),
   members: () => call('GET', '/api/members'),

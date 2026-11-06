@@ -68,9 +68,12 @@ async function setUnits(u, reopen = true) {
   await refreshWeather(); if (reopen) openWeather(state.weather, state.units, setUnits);
 }
 $('#wx-chip').onclick = () => openWeather(state.weather, state.units, setUnits);
-cal.onclick = e => {
+cal.onclick = async e => {
   const ev = e.target.closest('[data-event]');
-  if (ev) return openEventForm(state, actions, state.events.find(x => x.id === +ev.dataset.event));
+  if (ev) {  // repeating events: edit the series (its first occurrence), not the tapped date
+    const occ = state.events.find(x => x.id === +ev.dataset.event);
+    return openEventForm(state, actions, occ.repeat !== 'none' ? await api.event(occ.id) : occ);
+  }
   const slot = e.target.closest('[data-slot]');
   if (slot) {  // empty time slot: new event at that hour
     const hour = Math.min(23, Math.floor((e.clientY - slot.getBoundingClientRect().top) / (slot.offsetHeight / 24)));

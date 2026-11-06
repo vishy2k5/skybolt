@@ -18,7 +18,7 @@ More features are expected over time, so keep the design modular.
 
 ## Hardware (decided or leaning)
 - Display: 10.1" capacitive touchscreen, HDMI plus USB touch, likely 1024x600 (model not confirmed; also support 1280x800 as a second layout)
-- Board: Raspberry Pi 4 2GB is the leading choice (1GB and 4GB were considered). Not final. Pi Zero 2 W is sold out. Pi 4 and Pi 5 use micro-HDMI.
+- Board: **Raspberry Pi 5 4GB** (decided). Uses micro-HDMI. Needs the official 27W USB-C supply and an active cooler. Prefer a good A2 microSD or NVMe for the SQLite DB (limit write wear).
 - OS target: Raspberry Pi OS Lite 64-bit, kiosk browser, zram enabled
 - No microphone, no camera needed
 
@@ -26,14 +26,14 @@ More features are expected over time, so keep the design modular.
 - **Backend** (runs as a background service): talks to Google (Calendar + Tasks), stores data in SQLite, exposes a local HTTP API. It never draws the screen.
 - **UI**: a lean web page served by the backend, shown full-screen in a kiosk browser on the Pi, and also usable from a phone browser. UI only talks to the backend API.
 - **MCP layer** (later): a thin server on top of the backend API, not directly on Google. Start read-only, add writes later.
-- The backend and UI are kept separate so either side can move to another device (for example the backend to a home server and the Pi stays a pure display) or the UI can be swapped for a native one (Qt/QML) if the browser is too heavy.
+- The backend and UI are kept separate so either side can move to another device (for example the backend to a home server and the Pi stays a pure display) or the UI can be swapped for a native one (Qt/QML) if the browser is too heavy (unlikely on a Pi 5 4GB; measure first).
 
 ## Stack
-- Backend: Python (FastAPI) with SQLite. Keep dependencies minimal (a Go rewrite is possible later if memory is an issue).
+- Backend: Python (FastAPI) with SQLite, managed with uv (`pyproject.toml`, `uv.lock`; run `./run.sh`). Keep dependencies minimal (a Go rewrite is possible later if memory is an issue).
 - UI: plain HTML/CSS with light JavaScript, no heavy frameworks. Touch-first, large tap targets, sized for 1024x600 first.
 
 ## Memory and performance budget (important)
-- The Pi may have only 1-2GB RAM. Rough budget: OS about 150MB, browser 300-500MB, backend plus MCP 100-150MB.
+- Pi 5 has 4GB, so this is comfortable, but stay lean anyway. Rough budget: OS about 150MB, browser 300-500MB, backend plus MCP 100-150MB.
 - Resize photos on upload to the screen size, show one at a time, preload at most the next one.
 - No video, no heavy animations, no big JS bundles.
 - Plan for a nightly browser restart. Measure real memory use on the Pi early.
@@ -61,6 +61,6 @@ More features are expected over time, so keep the design modular.
 - The user will need to create the Google Cloud project, enable the Calendar and Tasks APIs, and make an OAuth client. Give exact steps when step 2 begins.
 
 ## Open items
-- Final Pi model, and exact display model and resolution
+- Exact display model and resolution
 - Repo name
 - Whether a home server will run the backend instead of the Pi

@@ -13,6 +13,7 @@ class EventIn(BaseModel):
     location: str = Field(default="", max_length=300)
     calendar_id: str = "local"
     member_id: int | None = None
+    repeat: Literal["none", "daily", "weekly", "monthly", "yearly"] = "none"
 
     @model_validator(mode="after")
     def _check_range(self):
