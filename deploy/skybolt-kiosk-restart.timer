@@ -1,0 +1,8 @@
+[Unit]
+Description=Nightly restart of the Skybolt kiosk browser
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+
+[Install]
+WantedBy=timers.target

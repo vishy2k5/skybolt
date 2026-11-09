@@ -12,3 +12,19 @@ uv run pytest       # tests
 API docs: http://127.0.0.1:8000/docs
 Screens can be opened directly: `/?view=month`, `/?open=weather`, `/?open=chores`, `/?open=settings`, `/?open=add`.
 Weather location: set `SKYBOLT_LAT`, `SKYBOLT_LON`, `SKYBOLT_UNITS` in `.env` (see `.env.example`).
+
+## Deploy on the Pi
+Requires Raspberry Pi OS with the desktop (labwc), Chromium and [uv](https://docs.astral.sh/uv/).
+```
+deploy/install.sh backend     # systemd service on 127.0.0.1:8000, starts at boot
+deploy/install.sh kiosk-on    # full-screen browser now and at every desktop login
+deploy/install.sh kiosk-off   # back to the normal desktop
+deploy/install.sh uninstall   # removes the services, keeps data/
+```
+The kiosk takes over the screen, so leave it off while using the Pi as a desktop. Closing the browser only reloads it, so use `kiosk-off` to exit. It also restarts nightly at 04:00.
+
+For a wall display, turn on desktop auto-login: `sudo raspi-config nonint do_boot_behaviour B4`.
+
+Logs: `journalctl -u skybolt -f`. After changing `.env` or pulling new code: `sudo systemctl restart skybolt`.
+
+The API has no authentication yet, so keep `SKYBOLT_HOST=127.0.0.1` unless you trust everything on your network.

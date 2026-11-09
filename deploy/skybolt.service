@@ -1,0 +1,19 @@
+[Unit]
+Description=Skybolt backend (API and UI)
+After=network.target
+
+[Service]
+User=@USER@
+WorkingDirectory=@ROOT@
+ExecStart=@ROOT@/.venv/bin/skybolt
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# Holds the SQLite DB. A SKYBOLT_DB_PATH outside this folder must be added here.
+ReadWritePaths=@ROOT@/data
+
+[Install]
+WantedBy=multi-user.target

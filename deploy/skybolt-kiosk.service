@@ -1,0 +1,10 @@
+[Unit]
+Description=Skybolt kiosk browser
+# Give up after repeated failures, such as when the desktop session has ended.
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+ExecStart=@ROOT@/deploy/kiosk.sh
+Restart=always
+RestartSec=5

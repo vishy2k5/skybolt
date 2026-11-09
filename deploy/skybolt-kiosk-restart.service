@@ -1,0 +1,6 @@
+[Unit]
+Description=Restart the Skybolt kiosk browser if it is running
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl --user try-restart skybolt-kiosk.service

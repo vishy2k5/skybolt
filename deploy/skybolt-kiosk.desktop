@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=Skybolt kiosk
+Exec=systemctl --user start skybolt-kiosk.service skybolt-kiosk-restart.timer
+X-GNOME-Autostart-enabled=true
