@@ -7,7 +7,7 @@ import { openEventForm } from './eventform.js';
 import { openSettings } from './settings.js';
 
 const qs = new URLSearchParams(location.search); // ?view=month&open=weather — handy for testing
-const state = { view: qs.get('view') || localStorage.getItem('view') || 'week', cursor: new Date(), events: [], members: [], chores: [], weather: null,
+const state = { view: qs.get('view') || localStorage.getItem('view') || 'week', cursor: new Date(), events: [], members: [], chores: [], weather: null, google: null,
   units: localStorage.getItem('units') }; // null = use server default (SKYBOLT_UNITS)
 
 const cal = $('#cal');
@@ -34,12 +34,15 @@ async function refreshChores() {
   const n = state.chores.filter(c => !c.done).length, b = $('#chores-btn .badge');
   b.hidden = !n; b.textContent = n;
 }
+async function refreshGoogle() {
+  try { state.google = await api.google(); } catch { /* keep last */ }
+}
 async function refreshWeather() {
   try { state.weather = await api.weather(state.units);
     state.units ||= state.weather.units.temp === '°F' ? 'imperial' : 'metric'; } catch { /* keep last */ }
   renderChip($('#wx-chip'), state.weather);
 }
-const actions = { reload: () => loadEvents(true), refreshChores };
+const actions = { reload: () => loadEvents(true), refreshChores, refreshGoogle };
 
 function tick() {
   const n = new Date();
@@ -61,7 +64,7 @@ $('#next').onclick = () => shift(1);
 $('#today').onclick = () => { state.cursor = new Date(); loadEvents(); };
 $('#views').onclick = e => { const b = e.target.closest('[data-view]'); if (b) setView(b.dataset.view); };
 $('#add-btn').onclick = () => openEventForm(state, actions, null, state.view === 'day' ? state.cursor : null);
-$('#gear-btn').onclick = () => openSettings(state, { onUnits: setUnits, onClose: async () => { await refreshChores(); render(true); } });
+$('#gear-btn').onclick = () => openSettings(state, { onUnits: setUnits, onClose: async () => { await Promise.all([refreshChores(), refreshGoogle()]); loadEvents(true); } });
 $('#chores-btn').onclick = () => openChores(state, actions);
 async function setUnits(u, reopen = true) {
   state.units = u; localStorage.setItem('units', u);
@@ -84,10 +87,10 @@ cal.onclick = async e => {
 };
 
 tick(); setInterval(tick, 10_000);
-await Promise.all([refreshChores(), refreshWeather()]);
+await Promise.all([refreshChores(), refreshWeather(), refreshGoogle()]);
 await loadEvents();
 setInterval(refreshWeather, 10 * 60_000);
-setInterval(() => { loadEvents(true); refreshChores(); }, 2 * 60_000);
+setInterval(async () => { await refreshGoogle(); loadEvents(true); refreshChores(); }, 2 * 60_000);
 const open = qs.get('open');
 if (open === 'weather') $('#wx-chip').click();
 if (open === 'chores') $('#chores-btn').click();

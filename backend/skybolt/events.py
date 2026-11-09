@@ -1,13 +1,18 @@
+import logging
 import sqlite3
 from calendar import monthrange
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from . import recur
+from .gsync import WRITABLE
 from .models import EventIn, EventOut
 
 router = APIRouter(prefix="/api/events", tags=["events"])
+log = logging.getLogger("skybolt.events")
 MAX_OCCURRENCES = 1000  # safety cap per series per query
+VISIBLE = "cancelled=0 AND (pending IS NULL OR pending!='delete')"
 
 
 def _row(r: sqlite3.Row) -> EventOut:
@@ -52,6 +57,25 @@ def _expand(ev: EventOut, ws: datetime, we: datetime) -> list[EventOut]:
     return out
 
 
+def _series(r: sqlite3.Row, ws: datetime, we: datetime, skip: set) -> list[EventOut]:
+    ev = _row(r)
+    dur = ev.end - ev.start
+    if r["rrule"]:
+        try:
+            starts = recur.occurrences(r["rrule"], ev.start, dur, ws, we)
+        except (ValueError, KeyError) as e:  # a rule we can't read: show the first occurrence only
+            log.warning("cannot expand event %s: %s", r["id"], e)
+            starts = [ev.start] if ev.start < we and ev.end >= ws else []
+        occ = [ev.model_copy(update={"start": s, "end": s + dur}) for s in starts]
+    elif ev.repeat == "custom":
+        occ = [ev]
+    else:
+        occ = _expand(ev, ws, we)
+    if r["google_id"]:  # occurrences changed or cancelled in Google are separate rows
+        occ = [o for o in occ if (r["calendar_id"], r["google_id"], o.start.isoformat()) not in skip]
+    return occ
+
+
 @router.get("", response_model=list[EventOut])
 def list_events(
     request: Request,
@@ -59,7 +83,7 @@ def list_events(
     end: datetime | None = Query(None, description="Events starting before this"),
 ):
     db = _db(request)
-    sql, args = "SELECT * FROM events WHERE repeat='none'", []
+    sql, args = f"SELECT * FROM events WHERE repeat='none' AND {VISIBLE}", []
     if start:
         sql += " AND end >= ?"
         args.append(start.isoformat())
@@ -70,33 +94,62 @@ def list_events(
 
     if start and end:  # expand repeating series into the requested window
         ws, we = start.replace(tzinfo=None), end.replace(tzinfo=None)
-        for r in db.execute("SELECT * FROM events WHERE repeat!='none' AND start < ?", (we.isoformat(),)):
-            events += _expand(_row(r), ws, we)
+        skip = {tuple(r) for r in db.execute(
+            "SELECT calendar_id, series_gid, original_start FROM events WHERE series_gid IS NOT NULL")}
+        for r in db.execute(f"SELECT * FROM events WHERE repeat!='none' AND {VISIBLE} AND start < ?", (we.isoformat(),)):
+            events += _series(r, ws, we, skip)
     else:  # no window: return series definitions as-is
-        events += [_row(r) for r in db.execute("SELECT * FROM events WHERE repeat!='none'")]
+        events += [_row(r) for r in db.execute(f"SELECT * FROM events WHERE repeat!='none' AND {VISIBLE}")]
     return sorted(events, key=lambda e: (e.start, e.id))
 
 
-def _values(ev: EventIn) -> tuple:
-    return (ev.title, ev.start.isoformat(), ev.end.isoformat(), int(ev.all_day), ev.description,
-            ev.location, ev.calendar_id, ev.member_id, ev.repeat)
+def _gcal(db: sqlite3.Connection, cal_id: str) -> sqlite3.Row | None:
+    """The Google calendar for cal_id, None for 'local'; 400 if unknown or switched off."""
+    if cal_id == "local":
+        return None
+    cal = db.execute("SELECT * FROM google_calendars WHERE id=? AND enabled=1", (cal_id,)).fetchone()
+    if cal is None:
+        raise HTTPException(400, "unknown calendar")
+    return cal
+
+
+def _writable(db: sqlite3.Connection, cal_id: str) -> sqlite3.Row | None:
+    cal = _gcal(db, cal_id)
+    if cal is not None and cal["access_role"] not in WRITABLE:
+        raise HTTPException(403, "this Google calendar is read-only")
+    return cal
+
+
+def _raw(db: sqlite3.Connection, event_id: int) -> sqlite3.Row:
+    r = db.execute(f"SELECT * FROM events WHERE id=? AND {VISIBLE}", (event_id,)).fetchone()
+    if r is None:
+        raise HTTPException(404, "event not found")
+    return r
+
+
+def _get(db: sqlite3.Connection, event_id: int) -> EventOut:
+    return _row(_raw(db, event_id))
+
+
+def _changed(request: Request, cal) -> None:
+    request.app.state.db.commit()
+    if cal is not None:
+        request.app.state.syncer.wake.set()
 
 
 @router.post("", response_model=EventOut, status_code=201)
 def create_event(request: Request, ev: EventIn):
     db = _db(request)
+    if ev.repeat == "custom":
+        raise HTTPException(400, "custom repeats can only be set in Google Calendar")
+    cal = _writable(db, ev.calendar_id)
     cur = db.execute(
-        "INSERT INTO events (title,start,end,all_day,description,location,calendar_id,member_id,repeat)"
-        " VALUES (?,?,?,?,?,?,?,?,?)", _values(ev))
-    db.commit()
+        "INSERT INTO events (title,start,end,all_day,description,location,calendar_id,member_id,repeat,pending)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (ev.title, ev.start.isoformat(), ev.end.isoformat(), int(ev.all_day), ev.description, ev.location,
+         ev.calendar_id, ev.member_id, ev.repeat, "upsert" if cal is not None else None))
+    _changed(request, cal)
     return _get(db, cur.lastrowid)
-
-
-def _get(db: sqlite3.Connection, event_id: int) -> EventOut:
-    r = db.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
-    if r is None:
-        raise HTTPException(404, "event not found")
-    return _row(r)
 
 
 @router.get("/{event_id}", response_model=EventOut)
@@ -108,18 +161,40 @@ def get_event(request: Request, event_id: int):
 @router.put("/{event_id}", response_model=EventOut)
 def update_event(request: Request, event_id: int, ev: EventIn):
     db = _db(request)
-    _get(db, event_id)
+    old = _raw(db, event_id)
+    _writable(db, old["calendar_id"])
+    cal = _writable(db, ev.calendar_id)
+    if ev.repeat == "custom" and not old["rrule"]:
+        raise HTTPException(400, "custom repeats can only be set in Google Calendar")
+    if old["series_gid"] and (ev.repeat != "none" or ev.calendar_id != old["calendar_id"]):
+        raise HTTPException(400, "a single occurrence can't repeat or move to another calendar")
+    rrule = old["rrule"] if ev.repeat == "custom" else ""
+    google_id, etag = old["google_id"], old["etag"]
+    if google_id and ev.calendar_id != old["calendar_id"]:  # moving: delete there, create here
+        db.execute("UPDATE events SET google_id=NULL WHERE id=?", (event_id,))
+        db.execute("INSERT INTO events (title,start,end,calendar_id,google_id,pending) VALUES (?,?,?,?,?,'delete')",
+                   (old["title"], old["start"], old["end"], old["calendar_id"], google_id))
+        db.execute("DELETE FROM events WHERE calendar_id=? AND series_gid=?", (old["calendar_id"], google_id))
+        google_id = etag = None
     db.execute(
-        "UPDATE events SET title=?,start=?,end=?,all_day=?,description=?,location=?,calendar_id=?,"
-        "member_id=?,repeat=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?",
-        (*_values(ev), event_id))
-    db.commit()
+        "UPDATE events SET title=?,start=?,end=?,all_day=?,description=?,location=?,calendar_id=?,member_id=?,"
+        "repeat=?,rrule=?,google_id=?,etag=?,pending=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?",
+        (ev.title, ev.start.isoformat(), ev.end.isoformat(), int(ev.all_day), ev.description, ev.location,
+         ev.calendar_id, ev.member_id, ev.repeat, rrule, google_id, etag,
+         "upsert" if cal is not None else None, event_id))
+    _changed(request, cal or _gcal(db, old["calendar_id"]))
     return _get(db, event_id)
 
 
 @router.delete("/{event_id}", status_code=204)
 def delete_event(request: Request, event_id: int):
     db = _db(request)
-    _get(db, event_id)
-    db.execute("DELETE FROM events WHERE id=?", (event_id,))
-    db.commit()
+    old = _raw(db, event_id)
+    cal = _writable(db, old["calendar_id"])
+    if old["google_id"]:  # remove from Google on the next sync
+        db.execute("UPDATE events SET pending='delete' WHERE id=?", (event_id,))
+        if not old["series_gid"]:
+            db.execute("DELETE FROM events WHERE calendar_id=? AND series_gid=?", (old["calendar_id"], old["google_id"]))
+    else:
+        db.execute("DELETE FROM events WHERE id=?", (event_id,))
+    _changed(request, cal)

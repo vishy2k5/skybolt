@@ -13,6 +13,11 @@ API docs: http://127.0.0.1:8000/docs
 Screens can be opened directly: `/?view=month`, `/?open=weather`, `/?open=chores`, `/?open=settings`, `/?open=add`.
 Weather location: set `SKYBOLT_LAT`, `SKYBOLT_LON`, `SKYBOLT_UNITS` in `.env` (see `.env.example`).
 
+## Google Calendar
+Two-way sync with your Google calendars, using your own Google Cloud project so no other service sees your data.
+To connect, open http://localhost:8000 on the Pi, go to **Settings > Google Calendar** and follow the five steps shown there. You'll create a free Google Cloud project with a **Desktop app** client, then paste its Client ID and secret.
+Sign-in details are stored encrypted in `data/`. Edits on the wall reach Google within seconds, and changes from a phone show up within 2 minutes.
+
 ## Deploy on the Pi
 Requires Raspberry Pi OS with the desktop (labwc), Chromium and [uv](https://docs.astral.sh/uv/).
 ```

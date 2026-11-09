@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "DIY smart wall calendar"
 requires-python = ">=3.11"
 dependencies = [
+    "cryptography>=43",
     "fastapi>=0.115",
+    "python-dateutil>=2.9",
     "uvicorn>=0.30",
 ]
 

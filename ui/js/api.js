@@ -21,4 +21,9 @@ export const api = {
   setDone: (id, done) => call('PATCH', `/api/chores/${id}`, { done }),
   deleteChore: id => call('DELETE', `/api/chores/${id}`),
   weather: units => call('GET', '/api/weather' + (units ? `?units=${units}` : '')),
+  google: () => call('GET', '/api/google/status'),
+  googleClient: (client_id, client_secret) => call('POST', '/api/google/client', { client_id, client_secret }),
+  googleSync: () => call('POST', '/api/google/sync'),
+  googleCalendar: (id, enabled) => call('PUT', `/api/google/calendars/${encodeURIComponent(id)}`, { enabled }),
+  googleDisconnect: () => call('POST', '/api/google/disconnect'),
 };

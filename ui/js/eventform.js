@@ -3,6 +3,13 @@ import { dkey, esc, parse } from './util.js';
 import { openSheet, closeSheet } from './modal.js';
 
 const REPEATS = [['none', 'Never'], ['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']];
+
+// Calendars an event can be saved to: Google ones that are shown and writable, plus this device.
+function calendarChoices(state) {
+  const g = state.google?.connected ? state.google.calendars.filter(c => c.enabled && c.writable) : [];
+  return [...g.map(c => ({ id: c.id, name: c.primary ? 'Google' : c.summary, color: c.color })),
+          { id: 'local', name: 'This device only', color: 'var(--dim)' }];
+}
 const hhmm = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
 export function openEventForm(state, actions, ev, defaultDay, hour = null) {
@@ -10,13 +17,16 @@ export function openEventForm(state, actions, ev, defaultDay, hour = null) {
   if (ev) {
     const s = parse(ev.start), e = parse(ev.end);
     f = { title: ev.title, sd: dkey(s), ed: dkey(e), st: hhmm(s), et: hhmm(e), allDay: ev.all_day,
-          member_id: ev.member_id, location: ev.location, description: ev.description, repeat: ev.repeat };
+          member_id: ev.member_id, location: ev.location, description: ev.description, repeat: ev.repeat, calendar_id: ev.calendar_id };
   } else {
     const d = new Date(defaultDay || Date.now()); const now = new Date();
     const h = hour ?? (defaultDay && dkey(defaultDay) !== dkey(now) ? 9 : Math.min(now.getHours() + 1, 22));
     f = { title: '', sd: dkey(d), ed: dkey(d), st: `${String(h).padStart(2, '0')}:00`, et: h >= 23 ? '23:59' : `${String(h + 1).padStart(2, '0')}:00`,
-          allDay: false, member_id: null, location: '', description: '', repeat: 'none' };
+          allDay: false, member_id: null, location: '', description: '', repeat: 'none', calendar_id: calendarChoices(state)[0].id };
   }
+  const cals = calendarChoices(state);
+  const readOnly = ev && ev.calendar_id !== 'local' && !cals.some(c => c.id === ev.calendar_id);
+  const single = !!ev?.series_gid;  // one changed occurrence of a Google series
   const sheet = openSheet({ title: ev ? 'Edit event' : 'New event' });
 
   const render = () => {
@@ -30,15 +40,20 @@ export function openEventForm(state, actions, ev, defaultDay, hour = null) {
       <div class="f"><label>Who</label><div class="pills">
         <button class="pill ${f.member_id == null ? 'on' : ''}" data-who="">Everyone</button>
         ${state.members.map(m => `<button class="pill ${f.member_id === m.id ? 'on' : ''}" style="--c:${m.color}" data-who="${m.id}"><span class="dot" style="--c:${m.color}"></span>${esc(m.name)}</button>`).join('')}</div></div>
-      <div class="f"><label>Repeat</label><div class="pills">
+      ${single ? '' : `<div class="f"><label>Repeat</label><div class="pills">
         ${REPEATS.map(([v, l]) => `<button class="pill ${f.repeat === v ? 'on' : ''}" data-repeat="${v}">${l}</button>`).join('')}
-        <button class="pill ${f.allDay && f.repeat === 'yearly' ? 'on' : ''}" data-birthday>🎂 Birthday</button></div></div>
+        ${ev?.repeat === 'custom' ? `<button class="pill ${f.repeat === 'custom' ? 'on' : ''}" data-repeat="custom">Custom (set in Google)</button>` : ''}
+        <button class="pill ${f.allDay && f.repeat === 'yearly' ? 'on' : ''}" data-birthday>🎂 Birthday</button></div></div>`}
+      ${cals.length > 1 && !single && !readOnly ? `<div class="f"><label>Calendar</label><div class="pills">
+        ${cals.map(c => `<button class="pill ${f.calendar_id === c.id ? 'on' : ''}" style="--c:${c.color}" data-cal="${esc(c.id)}"><span class="dot" style="--c:${c.color}"></span>${esc(c.name)}</button>`).join('')}</div></div>` : ''}
+      ${readOnly ? '<div class="note">This event is from a view-only Google calendar.</div>' : ''}
       <div class="f"><label>Location</label><input id="e-loc" value="${esc(f.location)}" maxlength="300"></div>
       <div class="f"><label>Notes</label><textarea id="e-desc" maxlength="5000">${esc(f.description)}</textarea></div>
       <div id="e-err" class="stale"></div>`;
   };
   render();
-  sheet.setFoot(`${ev ? `<button class="danger" data-del>${ev.repeat !== 'none' ? 'Delete all repeats' : 'Delete'}</button>` : ''}<span class="spacer"></span>
+  sheet.setFoot(readOnly ? '<span class="spacer"></span><button data-close>Close</button>'
+    : `${ev ? `<button class="danger" data-del>${ev.repeat !== 'none' ? 'Delete all repeats' : 'Delete'}</button>` : ''}<span class="spacer"></span>
     <button data-close>Cancel</button><button class="primary" data-save>Save</button>`);
 
   const map = { 'e-title': 'title', 'e-sd': 'sd', 'e-ed': 'ed', 'e-st': 'st', 'e-et': 'et', 'e-loc': 'location', 'e-desc': 'description' };
@@ -56,6 +71,8 @@ export function openEventForm(state, actions, ev, defaultDay, hour = null) {
       else { f.allDay = true; f.repeat = 'yearly'; f.ed = f.sd; }
       render();
     }
+    const cl = e.target.closest('[data-cal]');
+    if (cl) { f.calendar_id = cl.dataset.cal; render(); }
     const w = e.target.closest('[data-who]');
     if (w) { f.member_id = w.dataset.who === '' ? null : +w.dataset.who; render(); }
   };
@@ -70,7 +87,7 @@ export function openEventForm(state, actions, ev, defaultDay, hour = null) {
     if (end < start) return err('End must be after the start.');
     try {
       await api.saveEvent({ title: f.title.trim(), start, end, all_day: f.allDay, member_id: f.member_id, repeat: f.repeat,
-                            location: f.location, description: f.description }, ev?.id);
+                            location: f.location, description: f.description, calendar_id: f.calendar_id }, ev?.id);
       closeSheet(); actions.reload();
     } catch (ex) { err(String(ex.message).slice(0, 120)); }
   };
