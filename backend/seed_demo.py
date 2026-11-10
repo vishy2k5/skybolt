@@ -31,8 +31,16 @@ ev("Parent-teacher night", 3, 18, 30, 1, mom); ev("Date night", 4, 19, 0, 3, Non
 ev("Grandma visits", 5, 0, all_day=True); ev("Birthday party", 5, 14, 0, 3, kid)
 ev("Farmers market", 6, 9, 0, 2, mom, repeat="weekly"); ev("Trash day", 1, 0, all_day=True, repeat="weekly")
 ev("Mia's birthday", 3, 0, all_day=True, who=kid, repeat="yearly"); ev("Vitamins", 0, 7, 30, 0, repeat="daily")
-post("/api/chores", {"title": "Empty dishwasher", "member_id": kid, "due": date.today().isoformat(), "repeat": "daily"})
-post("/api/chores", {"title": "Take out trash", "member_id": dad, "due": (date.today() + timedelta(days=1)).isoformat(), "repeat": "weekly"})
-post("/api/chores", {"title": "Laundry", "member_id": mom, "due": (date.today() - timedelta(days=1)).isoformat()})
-post("/api/chores", {"title": "Water plants"})
+today = date.today().isoformat()
+chore = lambda title, who=None, **kw: post("/api/chores", {"title": title, "member_id": who, "due": today, **kw})  # noqa: E731
+chore("Make bed", kid, repeat="daily")
+chore("Empty dishwasher", kid, start_time="08:00", end_time="08:30", repeat="daily")
+chore("Homework", kid, start_time="16:00", end_time="17:00")
+chore("Practice piano", kid, start_time="18:00", end_time="18:30")
+chore("Take out trash", dad, repeat="weekly")
+chore("Walk the dog", dad, start_time="07:30", end_time="08:00", repeat="daily")
+chore("Grocery run", mom, start_time="10:30", end_time="11:30")
+chore("Family dinner cleanup", start_time="18:30", end_time="19:30", repeat="daily")  # no person = Everyone
+chore("Tidy living room")
+post("/api/chores", {"title": "Water plants"})  # no date: stays in the column until done
 print("seeded")

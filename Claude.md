@@ -52,8 +52,23 @@ More features are expected over time, so keep the design modular.
 4. Chores, then meals and recipes, then weather
 5. Photo slideshow
 6. Deploy to the Pi (systemd service, kiosk browser, zram), measure memory
-7. Phone-friendly add/edit page
+7. Phone-friendly add/edit page, reached over Tailscale. Do this in order:
+   - First add a login: a PIN or password asked once per phone/laptop, then remembered on that device. The wall screen on the Pi stays signed in without one.
+   - Then listen only on 127.0.0.1 plus the Pi's Tailscale address, never on all interfaces (0.0.0.0), so the home Wi-Fi can't reach it.
+   - Until both are done, `SKYBOLT_HOST` stays `127.0.0.1`: the API has no auth, and anyone who can reach it can read and edit the calendar and change the Google connection.
 8. MCP layer (read-only first)
+
+## Status (as of 2026-11-09)
+- Done: steps 1, 3 and 6; the Calendar half of step 2 (sync is live); chores and weather from step 4. Google **Tasks** is not built yet.
+- Not started: meals and recipes, photo slideshow, phone login (step 7), MCP (step 8).
+- Deployed and running on the Pi 5 (Raspberry Pi OS / Debian 13, labwc, Chromium kiosk). Update with `deploy/update.sh` over SSH (see README).
+
+## Decisions made along the way
+- **On-screen keyboard is built into the page** (`ui/js/keyboard.js`), shown only when the page is loaded from 127.0.0.1/localhost. The system keyboard (squeekboard) did not work with Chromium on labwc, so it is not used.
+- **Chores** are stored in SQLite, not Google Tasks. A chore has an optional person (none = Everyone), a date, an optional start/end time (none = all-day) and repeat none/daily/weekly. Completion is stored per day in `chore_done`, so repeats expand like events do. The UI is a Skylight-style board: a column per person plus an "Everyone" column.
+- **UI files are served with `Cache-Control: no-cache`** so the kiosk browser never keeps stale JS/CSS after a deploy.
+- **Licence:** PolyForm Noncommercial 1.0.0 (source-available, no commercial use). The repo is public, so never commit hostnames, IPs, tokens or credentials. GitHub secret scanning and push protection are on.
+- **Remote updates** go over SSH on Tailscale (`deploy/update.sh`). The Pi has no GitHub credentials and only pulls.
 
 ## Working agreements
 - Keep changes small and testable. Run and test locally in a browser first, then on the Pi.
@@ -62,5 +77,4 @@ More features are expected over time, so keep the design modular.
 
 ## Open items
 - Exact display model and resolution
-- Repo name
 - Whether a home server will run the backend instead of the Pi
