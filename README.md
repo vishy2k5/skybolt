@@ -33,3 +33,7 @@ For a wall display, turn on desktop auto-login: `sudo raspi-config nonint do_boo
 Logs: `journalctl -u skybolt -f`. After changing `.env` or pulling new code: `sudo systemctl restart skybolt`.
 
 The API has no authentication yet, so keep `SKYBOLT_HOST=127.0.0.1` unless you trust everything on your network.
+
+## License
+
+Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). Free to use, modify and share for personal, hobby, research and other noncommercial purposes. Commercial use is not permitted.
