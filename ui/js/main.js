@@ -1,3 +1,4 @@
+import './keyboard.js';
 import { api } from './api.js';
 import { $, fmt, iso } from './util.js';
 import { rangeFor, rangeTitle, renderView } from './views.js';
