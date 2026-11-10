@@ -168,3 +168,5 @@ textarea { padding:.6rem .8rem; min-height:4rem; resize:none; }
 
 /* Wall display: js/touchscroll.js does the panning, so the browser must not try to as well */
 html.ts, html.ts * { touch-action:none; }
+
+#logo { width:2.7rem; height:2.7rem; flex:none; border-radius:.7rem; }

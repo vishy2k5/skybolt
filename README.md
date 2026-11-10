@@ -1,6 +1,6 @@
-# Skybolt
+<h1 align="center"><img src="docs/logo.svg" alt="Skybolt" width="220"></h1>
 
-A self-hosted family wall calendar for a Raspberry Pi touchscreen. It syncs two-way with Google Calendar, shows the weather, and runs a Skylight-style chore board, all without any third-party app or cloud service seeing your data.
+<p align="center">A self-hosted family wall calendar for a Raspberry Pi touchscreen. It syncs two-way with Google Calendar, shows the weather, and runs a Skylight-style chore board, all without any third-party app or cloud service seeing your data.</p>
 
 ![Week view of the calendar](docs/screenshots/calendar-week.png)
 

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Skybolt">
+  <title>Skybolt</title>
+  <rect width="120" height="120" rx="26" fill="#101a2e"/>
+  <g transform="translate(0 15)">
+    <rect x="12" y="16" width="96" height="58" rx="8" fill="none" stroke="#f6f3ec" stroke-width="5"/>
+    <path d="M67 4 L38 50 H58 L50 86 L84 36 H64 Z" fill="#101a2e" stroke="#101a2e" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M67 4 L38 50 H58 L50 86 L84 36 H64 Z" fill="#ffb81c" stroke="#ffb81c" stroke-width="1.5" stroke-linejoin="round"/>
+  </g>
+</svg>

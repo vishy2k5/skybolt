@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="340" height="330" viewBox="30 30 340 330" role="img" aria-label="Skybolt">
+  <title>Skybolt</title>
+  <rect x="30" y="30" width="340" height="330" rx="16" fill="#101a2e"/>
+  <g transform="matrix(2 0 0 2 80 67.75)">
+    <rect x="12" y="16" width="96" height="58" rx="8" fill="none" stroke="#f6f3ec" stroke-width="5"/>
+    <path d="M67 4 L38 50 H58 L50 86 L84 36 H64 Z" fill="#101a2e" stroke="#101a2e" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M67 4 L38 50 H58 L50 86 L84 36 H64 Z" fill="#ffb81c" stroke="#ffb81c" stroke-width="1.5" stroke-linejoin="round"/>
+  </g>
+  <text x="153.9375" y="302.75" dominant-baseline="text-after-edge" font-family="'Space Grotesk', Inter, system-ui, sans-serif"
+        font-size="26" font-weight="700" letter-spacing="-0.8" fill="#f6f3ec" textLength="92.109375" lengthAdjust="spacingAndGlyphs">Skybolt</text>
+  <text x="124.4609375" y="322.25" dominant-baseline="text-after-edge" font-family="'Space Grotesk', Inter, system-ui, sans-serif"
+        font-size="12" font-weight="500" letter-spacing="3" fill="#9aa5bc" textLength="151.0703125" lengthAdjust="spacingAndGlyphs">A · CUTS THROUGH</text>
+</svg>
