@@ -16,7 +16,6 @@ done
 exec chromium "$URL" \
     --kiosk \
     --ozone-platform=wayland \
-    --enable-wayland-ime \
     --user-data-dir="$PROFILE" \
     --no-first-run \
     --no-default-browser-check \
