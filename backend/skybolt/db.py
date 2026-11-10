@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import date
 from pathlib import Path
 
 SCHEMA = """
@@ -14,8 +15,18 @@ CREATE TABLE IF NOT EXISTS chores (
     member_id INTEGER REFERENCES members(id) ON DELETE SET NULL,
     due       TEXT,                      -- YYYY-MM-DD or NULL
     repeat    TEXT NOT NULL DEFAULT 'none',
-    done      INTEGER NOT NULL DEFAULT 0,
-    done_at   TEXT
+    done      INTEGER NOT NULL DEFAULT 0,   -- legacy: completion now lives in chore_done
+    done_at   TEXT,                         -- legacy
+    start_time TEXT,                        -- HH:MM; NULL = all-day
+    end_time   TEXT
+);
+
+-- One row per ticked-off occurrence. day is '' for a chore with no date.
+CREATE TABLE IF NOT EXISTS chore_done (
+    chore_id INTEGER NOT NULL REFERENCES chores(id) ON DELETE CASCADE,
+    day      TEXT NOT NULL,
+    done_at  TEXT NOT NULL,
+    PRIMARY KEY (chore_id, day)
 );
 
 CREATE TABLE IF NOT EXISTS events (
@@ -82,6 +93,21 @@ def _migrate_events(conn: sqlite3.Connection) -> None:
         conn.commit()
 
 
+def _migrate_chores(conn: sqlite3.Connection) -> None:
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(chores)")}
+    if "start_time" in cols:
+        return  # already on the per-day model
+    conn.execute("ALTER TABLE chores ADD COLUMN start_time TEXT")
+    conn.execute("ALTER TABLE chores ADD COLUMN end_time TEXT")
+    # Old model: ticking a repeating chore created its next occurrence as a new row. Keep each finished one
+    # as a one-off record, and let the still-open row carry on as the series.
+    conn.execute("UPDATE chores SET repeat='none' WHERE done=1")
+    conn.execute("UPDATE chores SET due=? WHERE repeat!='none' AND due IS NULL", (date.today().isoformat(),))
+    conn.execute("INSERT OR IGNORE INTO chore_done (chore_id, day, done_at) "
+                 "SELECT id, COALESCE(due, ''), COALESCE(done_at, '') FROM chores WHERE done=1")
+    conn.commit()
+
+
 def connect(path: Path) -> sqlite3.Connection:
     if str(path) != ":memory:":
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -91,5 +117,6 @@ def connect(path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA)
     _migrate_events(conn)
+    _migrate_chores(conn)
     conn.executescript(INDEXES)
     return conn

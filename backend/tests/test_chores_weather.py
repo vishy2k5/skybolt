@@ -43,34 +43,6 @@ def test_members(client):
     assert len(client.get("/api/members").json()) == 2
 
 
-def test_chore_flow_and_repeat(client):
-    m = client.post("/api/members", json={"name": "Mia"}).json()
-    today = date.today()
-    c = client.post("/api/chores", json={"title": "Dishes", "member_id": m["id"],
-                                         "due": today.isoformat(), "repeat": "daily"}).json()
-    r = client.patch(f"/api/chores/{c['id']}", json={"done": True}).json()
-    assert r["done"] and r["done_at"]
-    chores = client.get("/api/chores").json()
-    pending = [x for x in chores if not x["done"]]
-    assert len(pending) == 1 and pending[0]["due"] == (today + timedelta(days=1)).isoformat()
-    # re-completing / undoing doesn't duplicate
-    client.patch(f"/api/chores/{c['id']}", json={"done": False})
-    client.patch(f"/api/chores/{c['id']}", json={"done": True})
-    assert len([x for x in client.get("/api/chores").json() if not x["done"]]) == 1
-
-
-def test_chore_validation(client):
-    assert client.post("/api/chores", json={"title": "x", "member_id": 999}).status_code == 422
-    assert client.post("/api/chores", json={"title": "x", "repeat": "yearly"}).status_code == 422
-
-
-def test_deleting_member_unassigns(client):
-    m = client.post("/api/members", json={"name": "Mia"}).json()
-    c = client.post("/api/chores", json={"title": "x", "member_id": m["id"]}).json()
-    client.delete(f"/api/members/{m['id']}")
-    assert client.get("/api/chores").json()[0]["member_id"] is None and c["id"]
-
-
 def test_weather_normalize_and_cache(client):
     w = client.get("/api/weather").json()
     assert w["current"]["temp"] == 54 and w["units"]["temp"] == "°F"

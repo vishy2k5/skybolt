@@ -1,6 +1,6 @@
 import './keyboard.js';
 import { api } from './api.js';
-import { $, fmt, iso } from './util.js';
+import { $, addDays, dkey, fmt, iso } from './util.js';
 import { rangeFor, rangeTitle, renderView } from './views.js';
 import { renderChip, openWeather } from './weather.js';
 import { openChores } from './chores.js';
@@ -8,7 +8,7 @@ import { openEventForm } from './eventform.js';
 import { openSettings } from './settings.js';
 
 const qs = new URLSearchParams(location.search); // ?view=month&open=weather — handy for testing
-const state = { view: qs.get('view') || localStorage.getItem('view') || 'week', cursor: new Date(), events: [], members: [], chores: [], weather: null, google: null,
+const state = { view: qs.get('view') || localStorage.getItem('view') || 'week', cursor: new Date(), events: [], members: [], choresLeft: 0, weather: null, google: null,
   units: localStorage.getItem('units') }; // null = use server default (SKYBOLT_UNITS)
 
 const cal = $('#cal');
@@ -30,10 +30,15 @@ async function loadEvents(keepScroll = false) {
   try { state.events = await api.events(iso(s), iso(e)); } catch (err) { console.error(err); }
   render(keepScroll);
 }
-async function refreshChores() {
-  try { state.chores = await api.chores(); state.members = await api.members(); } catch (err) { console.error(err); }
-  const n = state.chores.filter(c => !c.done).length, b = $('#chores-btn .badge');
-  b.hidden = !n; b.textContent = n;
+async function refreshChores() {  // badge = chores still to do today, plus overdue/undated ones
+  try {
+    const t = new Date();
+    const [today, open] = await Promise.all([api.chores(dkey(t), dkey(addDays(t, 1))), api.openChores()]);
+    state.members = await api.members();
+    state.choresLeft = today.filter(c => !c.done).length + open.length;
+  } catch (err) { console.error(err); }
+  const b = $('#chores-btn .badge');
+  b.hidden = !state.choresLeft; b.textContent = state.choresLeft;
 }
 async function refreshGoogle() {
   try { state.google = await api.google(); } catch { /* keep last */ }
@@ -94,6 +99,6 @@ setInterval(refreshWeather, 10 * 60_000);
 setInterval(async () => { await refreshGoogle(); loadEvents(true); refreshChores(); }, 2 * 60_000);
 const open = qs.get('open');
 if (open === 'weather') $('#wx-chip').click();
-if (open === 'chores') $('#chores-btn').click();
+if (open === 'chores' || location.hash === '#chores') $('#chores-btn').click();
 if (open === 'settings') $('#gear-btn').click();
 if (open === 'add') $('#add-btn').click();
