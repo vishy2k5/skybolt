@@ -6,7 +6,7 @@ import { rangeFor, rangeTitle, renderView } from './views.js';
 import { renderChip, openWeather } from './weather.js';
 import { openChores, closeChores } from './chores.js';
 import { closeSheet } from './modal.js';
-import { init as initScreensaver, show as showScreensaver } from './screensaver.js';
+import { available as ssAvailable, init as initScreensaver, show as showScreensaver } from './screensaver.js';
 import { openEventForm } from './eventform.js';
 import { openSettings } from './settings.js';
 
@@ -75,6 +75,8 @@ $('#views').onclick = e => { const b = e.target.closest('[data-view]'); if (b) s
 $('#add-btn').onclick = () => openEventForm(state, actions, null, state.view === 'day' ? state.cursor : null);
 $('#gear-btn').onclick = () => openSettings(state, { onUnits: setUnits, onClose: async () => { await Promise.all([refreshChores(), refreshGoogle()]); loadEvents(true); } });
 $('#chores-btn').onclick = () => openChores(state, actions);
+$('#ss-btn').hidden = !ssAvailable;  // wall display only, like the screensaver itself
+$('#ss-btn').onclick = () => showScreensaver();
 async function setUnits(u, reopen = true) {
   state.units = u; localStorage.setItem('units', u);
   await refreshWeather(); if (reopen) openWeather(state.weather, state.units, setUnits);
