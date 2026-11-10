@@ -30,6 +30,8 @@ The kiosk takes over the screen, so leave it off while using the Pi as a desktop
 
 For a wall display, turn on desktop auto-login: `sudo raspi-config nonint do_boot_behaviour B4`.
 
+On-screen keyboard (needed to type on the touchscreen): `sudo apt install squeekboard`, then reboot. The kiosk passes `--enable-wayland-ime` so Chromium shows it when a text field is tapped. If it does not appear, check `raspi-config` under Display Options for the on-screen keyboard setting.
+
 Logs: `journalctl -u skybolt -f`. After changing `.env` or pulling new code: `sudo systemctl restart skybolt`.
 
 The API has no authentication yet, so keep `SKYBOLT_HOST=127.0.0.1` unless you trust everything on your network.
