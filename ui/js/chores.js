@@ -145,6 +145,8 @@ function close() {
   actions.refreshChores();
 }
 
+export function closeChores() { if (page && !page.hidden) close(); }
+
 function build() {
   page = document.createElement('section');
   page.id = 'chore-page'; page.hidden = true;

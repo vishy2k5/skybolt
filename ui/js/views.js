@@ -1,6 +1,6 @@
 import { addDays, startOfWeek, startOfDay, dkey, sameDay, parse, fmtTime, fmt, esc, onDay } from './util.js';
 
-const colorOf = (state, e) => state.members.find(m => m.id === e.member_id)?.color
+export const colorOf = (state, e) => state.members.find(m => m.id === e.member_id)?.color
   || state.google?.calendars.find(c => c.id === e.calendar_id)?.color || 'var(--accent)';
 const sortEv = (a, b) => (b.all_day - a.all_day) || a.start.localeCompare(b.start);
 const dayEvents = (state, d) => state.events.filter(e => onDay(e, d)).sort(sortEv);

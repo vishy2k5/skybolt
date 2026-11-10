@@ -4,7 +4,9 @@ import { api } from './api.js';
 import { $, addDays, dkey, fmt, iso } from './util.js';
 import { rangeFor, rangeTitle, renderView } from './views.js';
 import { renderChip, openWeather } from './weather.js';
-import { openChores } from './chores.js';
+import { openChores, closeChores } from './chores.js';
+import { closeSheet } from './modal.js';
+import { init as initScreensaver, show as showScreensaver } from './screensaver.js';
 import { openEventForm } from './eventform.js';
 import { openSettings } from './settings.js';
 
@@ -93,12 +95,16 @@ cal.onclick = async e => {
   if (d) { state.cursor = new Date(d.dataset.day + 'T12:00:00'); setView('day'); }
 };
 
+// Idle for a few minutes: ambient dashboard; tapping it returns to today's calendar.
+initScreensaver({ state, onWake: () => { closeSheet(); closeChores(); state.cursor = new Date(); loadEvents(); } });
+
 tick(); setInterval(tick, 10_000);
 await Promise.all([refreshChores(), refreshWeather(), refreshGoogle()]);
 await loadEvents();
 setInterval(refreshWeather, 10 * 60_000);
 setInterval(async () => { await refreshGoogle(); loadEvents(true); refreshChores(); }, 2 * 60_000);
 const open = qs.get('open');
+if (open === 'screensaver') showScreensaver();
 if (open === 'weather') $('#wx-chip').click();
 if (open === 'chores' || location.hash === '#chores') $('#chores-btn').click();
 if (open === 'settings') $('#gear-btn').click();

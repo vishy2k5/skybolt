@@ -9,8 +9,8 @@ const W = {
   77: ['🌨️', 'Snow grains'], 80: ['🌦️', 'Light showers'], 81: ['🌧️', 'Showers'], 82: ['⛈️', 'Heavy showers'],
   85: ['🌨️', 'Snow showers'], 86: ['❄️', 'Heavy snow showers'], 95: ['⛈️', 'Thunderstorm'], 96: ['⛈️', 'Thunderstorm, hail'], 99: ['⛈️', 'Thunderstorm, hail'],
 };
-const icon = (code, day = true) => (!day && code <= 1 ? '🌙' : (W[code] || ['❔'])[0]);
-const label = code => (W[code] || ['', 'Unknown'])[1];
+export const icon = (code, day = true) => (!day && code <= 1 ? '🌙' : (W[code] || ['❔'])[0]);
+export const label = code => (W[code] || ['', 'Unknown'])[1];
 
 export function renderChip(el, w) {
   if (!w) { el.innerHTML = '<span class="ico">🌡️</span><small>Weather</small>'; return; }

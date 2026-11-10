@@ -1,6 +1,7 @@
 import { api } from './api.js';
 import { esc } from './util.js';
 import { openSheet } from './modal.js';
+import { available as ssAvailable, getMinutes, setMinutes, show as showScreensaver } from './screensaver.js';
 
 const SWATCHES = ['#4f9cf9', '#f2994a', '#6fcf97', '#bb6bd9', '#eb5757', '#f2c94c', '#56ccf2', '#9b9b9b'];
 
@@ -56,6 +57,10 @@ export function openSettings(state, { onClose, onUnits }) {
       <div class="sec"><h4>Temperature</h4><div class="pills">
         <button class="pill ${state.units === 'imperial' ? 'on' : ''}" data-u="imperial">°F</button>
         <button class="pill ${state.units === 'metric' ? 'on' : ''}" data-u="metric">°C</button></div></div>
+      ${ssAvailable ? `<div class="sec"><h4>Screensaver</h4><div class="note">Shows the clock, your day, chores and the forecast after the screen has been idle. Tap it to open the calendar.</div>
+        <div class="pills">${[[0, 'Off'], [2, '2 min'], [5, '5 min'], [10, '10 min'], [30, '30 min']].map(([m, l]) =>
+          `<button class="pill ${getMinutes() === m ? 'on' : ''}" data-ss="${m}">${l}</button>`).join('')}<span class="spacer"></span>
+          <button data-sspreview>Preview</button></div></div>` : ''}
       ${googleSection(state.google, armed, editClient)}`;
     sheet.foot.onclick = null;
   }
@@ -121,6 +126,8 @@ export function openSettings(state, { onClose, onUnits }) {
       }
       else if (ed) form(state.members.find(x => x.id === +ed.dataset.edit));
       else if (e.target.closest('[data-add]')) form(null);
+      else if (e.target.closest('[data-ss]')) { setMinutes(+e.target.closest('[data-ss]').dataset.ss); list(); }
+      else if (e.target.closest('[data-sspreview]')) showScreensaver({ preview: true });
       else if (u && u.dataset.u !== state.units) { await onUnits(u.dataset.u, false); list(); }
     };
   }

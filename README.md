@@ -24,6 +24,7 @@
 - **Two-way Google Calendar sync.** Uses your own Google Cloud project with incremental sync. Edits on the wall reach Google within seconds, and changes made on a phone show up within two minutes.
 - **Chores.** A full-screen board with a column per person and a shared "Everyone" column, a progress ring per person, and a week strip to pick the day. Chores can be timed or all-day, can repeat daily or weekly, and are ticked off per day.
 - **Family members.** Each person gets a color that carries through the calendar and the chore board.
+- **Screensaver.** After a few idle minutes the screen becomes a calm ambient dashboard: a big clock and, on cards that cross-fade, what's up next, chore progress per person, the week ahead and the forecast. The background follows the time of day and dims at night. Tap anywhere to open today's calendar.
 - **Weather.** Current conditions, hourly and 7-day forecast from [Open-Meteo](https://open-meteo.com/). No account or API key.
 - **Built-in on-screen keyboard.** Designed for the wall touchscreen, so you can type without attaching a keyboard. Phones use their own keyboard.
 - **Touch scrolling.** Drag any scrollable area with a finger and it follows and coasts. Chromium's own touch panning does not work in the Pi's Wayland kiosk, so the page handles it itself (`ui/js/touchscroll.js`).
@@ -34,6 +35,10 @@
 | Chores | On-screen keyboard |
 | --- | --- |
 | ![Chore board with a column per person](docs/screenshots/chores.png) | ![On-screen keyboard while adding a chore](docs/screenshots/on-screen-keyboard.png) |
+
+| Screensaver |
+| --- |
+| ![Screensaver showing the clock, weather and up-next events](docs/screenshots/screensaver.png) |
 
 ## How it works
 ```
@@ -101,6 +106,7 @@ deploy/install.sh uninstall   # remove the services (keeps data/)
 - **Auto-login.** For a wall display, enable desktop auto-login: `sudo raspi-config nonint do_boot_behaviour B4`.
 - **Nightly restart.** The kiosk browser restarts at 04:00 to keep memory use low.
 - **Touch scrolling.** Built in, and active only on the Pi's own screen (page loaded from `127.0.0.1`); phones keep their native scrolling. Add `?ts=0` to the URL to turn it off.
+- **Screensaver.** Starts after 5 idle minutes (change or turn it off in **Settings > Screensaver**, which also has a Preview button). Like the keyboard it runs only on the Pi's own screen. URL options: `?ss=0` disables it, `?open=screensaver` shows it right away.
 - **Leaving the kiosk.** The kiosk takes over the screen. Closing the browser only reloads it, so run `deploy/install.sh kiosk-off` to get the desktop back.
 - **On-screen keyboard.** Built in (`ui/js/keyboard.js`); no system keyboard is needed. It appears on the Pi's own screen only, not on phones. Add `?kb=1` or `?kb=0` to the URL to force it on or off.
 - **Logs.** `journalctl -u skybolt -f`.
@@ -145,13 +151,13 @@ uv run pytest                 # backend tests
 - Keep it lean: no video, no heavy animations and no large JavaScript bundles. The target budget is about 150 MB for the OS, 300-500 MB for the browser and 100-150 MB for the backend.
 
 ## Roadmap
-Done: Google Calendar sync, calendar views, chores, weather, on-screen keyboard, Raspberry Pi kiosk deployment.
+Done: Google Calendar sync, calendar views, chores, weather, on-screen keyboard, touch scrolling, screensaver, Raspberry Pi kiosk deployment.
 
 Planned:
 - Login for the phone-friendly add and edit page, then listening on the Tailscale address only.
 - Google Tasks.
 - Meal planner, recipes and grocery list.
-- Photo slideshow and screensaver.
+- Photo slideshow, which will also become a card in the screensaver.
 - A read-only MCP server so an AI assistant can read calendars, tasks and meals, with write tools added later.
 
 ## License
