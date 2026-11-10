@@ -1,9 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Skybolt">
   <title>Skybolt</title>
   <rect width="120" height="120" rx="26" fill="#101a2e"/>
-  <g transform="translate(0 15)">
-    <rect x="12" y="16" width="96" height="58" rx="8" fill="none" stroke="#f6f3ec" stroke-width="5"/>
-    <path d="M67 4 L38 50 H58 L50 86 L84 36 H64 Z" fill="#101a2e" stroke="#101a2e" stroke-width="10" stroke-linejoin="round"/>
-    <path d="M67 4 L38 50 H58 L50 86 L84 36 H64 Z" fill="#ffb81c" stroke="#ffb81c" stroke-width="1.5" stroke-linejoin="round"/>
+  <g transform="translate(0 8)">
+    <rect x="12" y="14" width="96" height="66" rx="8" fill="none" stroke="#f6f3ec" stroke-width="5"/>
+    <path d="M12 31 H108" stroke="#f6f3ec" stroke-width="3"/>
+    <path d="M34 8 V21 M86 8 V21" stroke="#f6f3ec" stroke-width="5" stroke-linecap="round"/>
+    <path d="M67 4 L38 50 H58 L50 86 L84 36 H64 Z" transform="matrix(0.5 0 0 0.5 29.5 31)" fill="#ffb81c" stroke="#ffb81c" stroke-width="3" stroke-linejoin="round"/>
   </g>
 </svg>
