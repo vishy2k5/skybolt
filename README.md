@@ -26,6 +26,7 @@ A self-hosted family wall calendar for a Raspberry Pi touchscreen. It syncs two-
 - **Family members.** Each person gets a color that carries through the calendar and the chore board.
 - **Weather.** Current conditions, hourly and 7-day forecast from [Open-Meteo](https://open-meteo.com/). No account or API key.
 - **Built-in on-screen keyboard.** Designed for the wall touchscreen, so you can type without attaching a keyboard. Phones use their own keyboard.
+- **Touch scrolling.** Drag any scrollable area with a finger and it follows and coasts. Chromium's own touch panning does not work in the Pi's Wayland kiosk, so the page handles it itself (`ui/js/touchscroll.js`).
 - **Kiosk mode.** A systemd service and a full-screen Chromium kiosk that starts at boot and restarts nightly to keep memory low.
 - **Lean.** Plain HTML, CSS and JavaScript with no framework and no build step. Python backend with SQLite and four dependencies.
 
@@ -99,6 +100,7 @@ deploy/install.sh uninstall   # remove the services (keeps data/)
 ```
 - **Auto-login.** For a wall display, enable desktop auto-login: `sudo raspi-config nonint do_boot_behaviour B4`.
 - **Nightly restart.** The kiosk browser restarts at 04:00 to keep memory use low.
+- **Touch scrolling.** Built in, and active only on the Pi's own screen (page loaded from `127.0.0.1`); phones keep their native scrolling. Add `?ts=0` to the URL to turn it off.
 - **Leaving the kiosk.** The kiosk takes over the screen. Closing the browser only reloads it, so run `deploy/install.sh kiosk-off` to get the desktop back.
 - **On-screen keyboard.** Built in (`ui/js/keyboard.js`); no system keyboard is needed. It appears on the Pi's own screen only, not on phones. Add `?kb=1` or `?kb=0` to the URL to force it on or off.
 - **Logs.** `journalctl -u skybolt -f`.

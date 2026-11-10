@@ -165,3 +165,6 @@ textarea { padding:.6rem .8rem; min-height:4rem; resize:none; }
 #overlay.kb { align-items:flex-start; padding-top:.4rem; }
 #overlay.kb .sheet { max-height:calc(100vh - var(--kbh) - .8rem); }
 #overlay.right.kb .sheet { max-height:calc(100vh - var(--kbh)); }
+
+/* Wall display: js/touchscroll.js does the panning, so the browser must not try to as well */
+html.ts, html.ts * { touch-action:none; }

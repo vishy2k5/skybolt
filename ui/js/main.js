@@ -1,4 +1,5 @@
 import './keyboard.js';
+import './touchscroll.js';
 import { api } from './api.js';
 import { $, addDays, dkey, fmt, iso } from './util.js';
 import { rangeFor, rangeTitle, renderView } from './views.js';
