@@ -17,6 +17,18 @@ from .gsync import Syncer
 from .members import router as members_router
 
 
+# The UI is local and small: make the browser revalidate it on every load so a deploy shows up at once
+# (without this, Chromium guesses a freshness time and the wall display can keep running old JS/CSS).
+NO_CACHE = {"Cache-Control": "no-cache"}
+
+
+class FreshStaticFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
+
 def create_app(settings: Settings | None = None, google_http=urllib_http) -> FastAPI:
     settings = settings or get_settings()
 
@@ -53,10 +65,10 @@ def create_app(settings: Settings | None = None, google_http=urllib_http) -> Fas
         page = Path(settings.ui_dir) / "index.html"
         if not page.exists():
             raise HTTPException(404)
-        return FileResponse(page)
+        return FileResponse(page, headers=NO_CACHE)
 
     if Path(settings.ui_dir).exists():
-        app.mount("/", StaticFiles(directory=settings.ui_dir, html=True), name="ui")
+        app.mount("/", FreshStaticFiles(directory=settings.ui_dir, html=True), name="ui")
     return app
 
 
