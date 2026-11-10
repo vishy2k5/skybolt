@@ -1,7 +1,9 @@
 // Screensaver ("ambient mode") for the wall display. After a few idle minutes it shows a calm full-screen dashboard:
 // a big clock on the left and, on the right, highlight cards that cross-fade every few seconds (up next, chores, the week,
-// the forecast). Tap anywhere to close it and land on today's calendar. Plain JS and CSS, no dependencies, no heavy animation.
+// the forecast). If there are photos (see backend/skybolt/photos.py) it alternates with a full-screen photo slideshow.
+// Tap anywhere to close it and land on today's calendar. Plain JS and CSS, no dependencies, only gentle fades.
 // Active only when the page is loaded from the Pi itself; ?ss=1 forces it on, ?ss=0 off. Open it now with ?open=screensaver.
+// Test knobs: ?ssmode=dashboard|photos|both, ?ssrotate=ms (per card), ?ssphoto=ms (per photo), ?ssperround=n, ?sscard=n.
 import { api } from './api.js';
 import { addDays, dkey, esc, fmt, fmtTime, iso, onDay, parse, sameDay, startOfDay } from './util.js';
 import { colorOf } from './views.js';
@@ -12,12 +14,24 @@ export const available = q.get('ss') === '1' || (q.get('ss') !== '0' && ['127.0.
 export const getMinutes = () => { try { const v = localStorage.getItem('ssMinutes'); return v == null ? 5 : +v; } catch { return 5; } };  // 0 = off
 export const setMinutes = m => { try { localStorage.setItem('ssMinutes', m); } catch { /* private mode: keep the default */ } };
 
-const ROTATE_MS = +q.get('ssrotate') || 12_000;  // time on each card (?ssrotate=ms is handy for testing)
+export const getMode = () => {  // what to show: the dashboard, the photos, or both in turn
+  const m = q.get('ssmode');
+  if (['both', 'dashboard', 'photos'].includes(m)) return m;
+  try { return localStorage.getItem('ssMode') || 'both'; } catch { return 'both'; }
+};
+export const setMode = m => { try { localStorage.setItem('ssMode', m); } catch { /* keep the default */ } };
+export const getPhotoSeconds = () => { try { return +localStorage.getItem('ssPhotoSec') || 12; } catch { return 12; } };
+export const setPhotoSeconds = n => { try { localStorage.setItem('ssPhotoSec', n); } catch { /* keep the default */ } };
+
+const ROTATE_MS = +q.get('ssrotate') || 12_000;  // time on each card
+const photoMs = () => +q.get('ssphoto') || getPhotoSeconds() * 1000;
+const PER_ROUND = +q.get('ssperround') || 6;     // photos shown before going back to the dashboard (mode "both")
 const REFRESH_MS = 60_000, DRIFT_MS = 45_000;
 const FAMILY = 'var(--family)';
 
-let cfg, el, visible = false, preview = false, idx = 0, fadeTimer = 0;
+let cfg, el, visible = false, preview = false, idx = 0, fadeTimer = 0, freeTimer = 0;
 let data = { events: [], chores: [], open: [] };
+let photoIds = [], queue = [], qi = 0, active = 0, phaseName = 'dash', cardsShown = 0, photosShown = 0, stepTimer = 0;
 const timers = [];
 
 const hour = () => new Date().getHours();
@@ -35,7 +49,14 @@ function columns() {
 function todayEvents(now) { return data.events.filter(e => onDay(e, now) && (e.all_day || parse(e.end) > now)).sort(sortEv); }
 const choresToday = () => data.chores.filter(c => c.day === dkey(new Date()));
 
+export const photoCount = () => photoIds.length;
+export async function refreshPhotos() {
+  try { photoIds = await api.photos(); } catch { /* keep the last list */ }
+  return photoIds.length;
+}
+
 async function load() {
+  refreshPhotos();
   const t = startOfDay(new Date());
   try {
     const [events, chores, open] = await Promise.all([api.events(iso(t), iso(addDays(t, 8))), api.chores(dkey(t), dkey(addDays(t, 1))), api.openChores()]);
@@ -126,8 +147,8 @@ function paintLeft() {
   const w = cfg.state.weather;
   el.querySelector('.ss-wx').innerHTML = w ? `<span>${icon(w.current.code, w.current.is_day)}</span><b>${w.current.temp}°</b>
     <small>${esc(label(w.current.code))}<br>H ${w.daily[0].high}° · L ${w.daily[0].low}°</small>` : '';
-  el.className = `open ${phase(h)} ${h >= 22 || h < 6 ? 'late' : ''}`;  // sky colour by time of day, dimmer late at night
-  el.id = 'screensaver';
+  el.className = `open ${phase(h)} ${h >= 22 || h < 6 ? 'late' : ''} ${phaseName === 'photo' ? 'photo' : ''}`;  // sky colour by time of day, dimmer late at night
+  paintPill(now);
 }
 
 function paintCard(fade) {
@@ -142,6 +163,87 @@ function paintCard(fade) {
   if (fade && slot.firstElementChild) { slot.firstElementChild.classList.remove('on'); fadeTimer = setTimeout(draw, 450); } else draw();
 }
 
+// ---- photo phase ---------------------------------------------------------------------------------------------------
+function nextEventText(now) {
+  const timed = e => !e.all_day;
+  const today = todayEvents(now).find(timed);
+  if (today) return `${esc(today.title)} · ${parse(today.start) <= now ? 'now' : fmtTime(parse(today.start))}`;
+  const tomorrow = data.events.filter(e => onDay(e, addDays(now, 1))).sort(sortEv);
+  const first = tomorrow.find(timed);
+  if (first) return `Tomorrow · ${esc(first.title)} ${fmtTime(parse(first.start))}`;
+  const allDay = todayEvents(now).find(e => e.all_day);
+  return allDay ? `Today · ${esc(allDay.title)}` : '';
+}
+
+function paintPill(now = new Date()) {
+  if (phaseName !== 'photo') return;
+  const parts = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' }).formatToParts(now);
+  const get = t => parts.find(p => p.type === t)?.value || '';
+  const w = cfg.state.weather, next = nextEventText(now);
+  el.querySelector('.ss-ptime').innerHTML = `${get('hour')}:${get('minute')}${get('dayPeriod') ? `<small>${get('dayPeriod')}</small>` : ''}`;
+  el.querySelector('.ss-pmeta').textContent = [fmt(now, { weekday: 'long', month: 'long', day: 'numeric' }), w ? `${icon(w.current.code, w.current.is_day)} ${w.current.temp}°` : ''].filter(Boolean).join('  ·  ');
+  const chip = el.querySelector('.ss-next');
+  chip.hidden = !next; chip.innerHTML = next ? `<span>📅</span><b>${next}</b>` : '';
+}
+
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const slides = () => [...el.querySelectorAll('.ss-slide')];
+const releaseSlides = () => slides().forEach(s => { s.classList.remove('on', 'cover', 'contain'); s.removeAttribute('src'); });
+const photoUrl = id => `/api/photos/${id}`;
+
+async function showNextPhoto() {
+  for (let tries = 0; tries < 4; tries++) {  // a missing or unreadable file is skipped
+    if (qi >= queue.length) { queue = shuffle([...photoIds]); qi = 0; }  // every photo once per pass, in a fresh random order
+    const next = slides()[1 - active];
+    next.classList.remove('on', 'cover', 'contain');
+    next.src = photoUrl(queue[qi++]);
+    try { await next.decode(); } catch { continue; }
+    if (!visible || phaseName !== 'photo') return;
+    // Landscape photos fill the screen; portrait ones are shown whole, on the sky background.
+    next.classList.add(next.naturalWidth / next.naturalHeight >= 1.25 ? 'cover' : 'contain', 'on');
+    slides()[active].classList.remove('on');
+    active = 1 - active;
+    if (photoIds.length > 1) new Image().src = photoUrl(queue[qi % queue.length]);  // warm the next one so the fade is never late
+    return;
+  }
+}
+
+function enterPhoto() {
+  phaseName = 'photo'; photosShown = 0; clearTimeout(freeTimer);
+  el.classList.add('photo');
+  paintPill(); showNextPhoto();
+}
+
+function enterDash() {
+  phaseName = 'dash'; cardsShown = 0;
+  el.classList.remove('photo');
+  paintLeft(); paintCard(false);
+  clearTimeout(freeTimer);  // its own timer: the cards' fade timer is cleared on every rotation
+  freeTimer = setTimeout(releaseSlides, 1600);  // after the fade-out, free the decoded pictures
+}
+
+// ---- the loop: one pass of the dashboard cards, then some photos, then round again ---------------------------------------
+const wantsPhotos = () => getMode() !== 'dashboard' && photoIds.length > 0;
+
+function schedule() {
+  clearTimeout(stepTimer);
+  stepTimer = setTimeout(step, phaseName === 'photo' ? photoMs() : ROTATE_MS);
+}
+
+function step() {
+  if (!visible) return;
+  if (phaseName === 'dash') {
+    cardsShown++;
+    if (wantsPhotos() && cardsShown >= cards().length) enterPhoto();
+    else { idx++; paintCard(true); }
+  } else {
+    photosShown++;
+    if (!photoIds.length || (getMode() === 'both' && photosShown >= PER_ROUND)) enterDash();
+    else showNextPhoto();
+  }
+  schedule();
+}
+
 function build() {
   el = document.createElement('div');
   el.id = 'screensaver';
@@ -149,7 +251,9 @@ function build() {
     <img class="ss-brand" src="/icon.svg" alt="" width="40" height="40">
     <section class="ss-left"><div class="ss-time"></div><div class="ss-date"></div><div class="ss-greet"></div><div class="ss-wx"></div></section>
     <section class="ss-right"><div class="ss-slot"></div><div class="ss-pager"></div></section>
-    <div class="ss-hint">Tap anywhere to open the calendar</div></div>`;
+    <div class="ss-hint">Tap anywhere to open the calendar</div></div>
+    <div class="ss-photos"><img class="ss-slide" alt=""><img class="ss-slide" alt=""><div class="ss-scrim"></div>
+      <div class="ss-pill"><div class="ss-ptime"></div><div class="ss-pmeta"></div></div><div class="ss-next" hidden></div></div>`;
   document.body.append(el);
   el.addEventListener('pointerup', wake);
 }
@@ -160,19 +264,25 @@ export function show(opts = {}) {
   preview = !!opts.preview;
   if (!el) build();
   visible = true; idx = +q.get('sscard') || 0;
+  phaseName = 'dash'; cardsShown = 0; photosShown = 0;
   paintLeft(); paintCard(false); load();
+  schedule();
+  // "Photos only": switch as soon as the list has loaded (the dashboard shows for that split second).
+  refreshPhotos().then(() => { if (visible && getMode() === 'photos' && photoIds.length && phaseName === 'dash') { enterPhoto(); schedule(); } });
   timers.push(setInterval(() => { paintLeft(); }, 5_000));
-  timers.push(setInterval(() => { idx++; paintCard(true); }, ROTATE_MS));
   timers.push(setInterval(load, REFRESH_MS));
-  const stage = el.querySelector('.ss-stage');
+  const stage = el.querySelector('.ss-stage'), shift = (n, m) => `translate(${Math.round(Math.random() * n - n / 2)}px, ${Math.round(Math.random() * m - m / 2)}px)`;
   timers.push(setInterval(() => {  // drift a few pixels now and then so a static layout never burns into the panel
-    stage.style.transform = `translate(${Math.round(Math.random() * 20 - 10)}px, ${Math.round(Math.random() * 16 - 8)}px)`;
+    stage.style.transform = shift(20, 16);
+    el.querySelector('.ss-pill').style.transform = shift(12, 10); el.querySelector('.ss-next').style.transform = shift(12, 10);
   }, DRIFT_MS));
 }
 
 function hide() {
-  visible = false; clearTimeout(fadeTimer);
+  visible = false; clearTimeout(fadeTimer); clearTimeout(stepTimer); clearTimeout(freeTimer);
   timers.splice(0).forEach(clearInterval);
+  phaseName = 'dash';
+  releaseSlides();
   el.classList.remove('open'); el.style.display = '';
   el.className = '';
 }

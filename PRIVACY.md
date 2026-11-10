@@ -6,7 +6,7 @@ Skybolt is a personal, self-hosted family wall calendar. It runs on the owner's 
 With your permission, Skybolt uses the Google Calendar API to read, create, edit and delete events in your Google calendars, so it can show them on the wall display and keep them in sync.
 
 ## Where your data goes
-- Calendar, chore and family-member data is stored only on the device running Skybolt.
+- Calendar, chore and family-member data, and any photos you add for the screensaver, are stored only on the device running Skybolt. Photos are shown from resized copies with all metadata (including location) removed; your originals are not changed or sent anywhere.
 - Skybolt contacts only two outside services:
   - **Google**, through its Calendar API, only after you connect your account.
   - **[Open-Meteo](https://open-meteo.com/)**, to fetch the weather. This request contains the latitude and longitude you configured, and nothing else. No account or API key is involved.

@@ -24,21 +24,21 @@
 - **Two-way Google Calendar sync.** Uses your own Google Cloud project with incremental sync. Edits on the wall reach Google within seconds, and changes made on a phone show up within two minutes.
 - **Chores.** A full-screen board with a column per person and a shared "Everyone" column, a progress ring per person, and a week strip to pick the day. Chores can be timed or all-day, can repeat daily or weekly, and are ticked off per day.
 - **Family members.** Each person gets a color that carries through the calendar and the chore board.
-- **Screensaver.** After a few idle minutes the screen becomes a calm ambient dashboard: a big clock and, on cards that cross-fade, what's up next, chore progress per person, the week ahead and the forecast. The background follows the time of day and dims at night. Tap anywhere to open today's calendar.
+- **Screensaver and photo frame.** After a few idle minutes the screen becomes a calm ambient dashboard: a big clock and, on cards that cross-fade, what's up next, chore progress per person, the week ahead and the forecast. If you add photos, it alternates with a full-screen slideshow that keeps the time and your next event in the corner. The background follows the time of day and dims at night. Tap anywhere to open today's calendar.
 - **Weather.** Current conditions, hourly and 7-day forecast from [Open-Meteo](https://open-meteo.com/). No account or API key.
 - **Built-in on-screen keyboard.** Designed for the wall touchscreen, so you can type without attaching a keyboard. Phones use their own keyboard.
 - **Touch scrolling.** Drag any scrollable area with a finger and it follows and coasts. Chromium's own touch panning does not work in the Pi's Wayland kiosk, so the page handles it itself (`ui/js/touchscroll.js`).
 - **Kiosk mode.** A systemd service and a full-screen Chromium kiosk that starts at boot and restarts nightly to keep memory low.
-- **Lean.** Plain HTML, CSS and JavaScript with no framework and no build step. Python backend with SQLite and four dependencies.
+- **Lean.** Plain HTML, CSS and JavaScript with no framework and no build step. Python backend with SQLite and five dependencies.
 
 ## Screenshots
 | Chores | On-screen keyboard |
 | --- | --- |
 | ![Chore board with a column per person](docs/screenshots/chores.png) | ![On-screen keyboard while adding a chore](docs/screenshots/on-screen-keyboard.png) |
 
-| Screensaver |
-| --- |
-| ![Screensaver showing the clock, weather and up-next events](docs/screenshots/screensaver.png) |
+| Screensaver: dashboard | Screensaver: photo frame (sample artwork) |
+| --- | --- |
+| ![Screensaver showing the clock, weather and up-next events](docs/screenshots/screensaver.png) | ![Screensaver photo with the time and next event in the corner](docs/screenshots/photo-frame.png) |
 
 ## How it works
 ```
@@ -82,6 +82,8 @@ Settings come from environment variables or a `.env` file in the project root. C
 | `SKYBOLT_GOOGLE_SYNC_SECONDS` | `120` | Seconds between background Google syncs; `0` disables it. |
 | `SKYBOLT_SECRET_KEY` | generated | Key that encrypts the stored Google sign-in. Generated into `data/secret.key` if empty. |
 | `SKYBOLT_GOOGLE_CREDENTIALS` | `credentials.json` | Optional OAuth client file, as an alternative to pasting it in Settings. |
+| `SKYBOLT_PHOTOS_DIR` | `data/photos` | Folder of pictures for the screensaver slideshow. |
+| `SKYBOLT_PHOTO_MAX` | `1600` | Longest side, in pixels, of the resized copies shown on screen. |
 
 ## Google Calendar
 Skybolt uses your own Google Cloud project, so no other service sees your data.
@@ -106,11 +108,23 @@ deploy/install.sh uninstall   # remove the services (keeps data/)
 - **Auto-login.** For a wall display, enable desktop auto-login: `sudo raspi-config nonint do_boot_behaviour B4`.
 - **Nightly restart.** The kiosk browser restarts at 04:00 to keep memory use low.
 - **Touch scrolling.** Built in, and active only on the Pi's own screen (page loaded from `127.0.0.1`); phones keep their native scrolling. Add `?ts=0` to the URL to turn it off.
-- **Screensaver.** Starts after 5 idle minutes (change or turn it off in **Settings > Screensaver**, which also has a Preview button). Like the keyboard it runs only on the Pi's own screen. URL options: `?ss=0` disables it, `?open=screensaver` shows it right away.
+- **Screensaver.** Starts after 5 idle minutes (change or turn it off, and choose what it shows, in **Settings > Screensaver**, which also has a Preview button). Like the keyboard it runs only on the Pi's own screen. URL options: `?ss=0` disables it, `?open=screensaver` shows it right away.
 - **Leaving the kiosk.** The kiosk takes over the screen. Closing the browser only reloads it, so run `deploy/install.sh kiosk-off` to get the desktop back.
 - **On-screen keyboard.** Built in (`ui/js/keyboard.js`); no system keyboard is needed. It appears on the Pi's own screen only, not on phones. Add `?kb=1` or `?kb=0` to the URL to force it on or off.
 - **Logs.** `journalctl -u skybolt -f`.
 - **After changing `.env`:** `sudo systemctl restart skybolt`.
+
+## Photos in the screensaver
+Skybolt shows pictures from a folder on the Pi. There is no upload page, so nothing about your photos is reachable from the network: you copy them yourself, over SSH on the same network or [Tailscale](https://tailscale.com/).
+
+```sh
+# from your computer (use your own user, Pi name and path)
+rsync -av --exclude='.*' ~/Pictures/family/ <user>@<pi>:<path to skybolt>/data/photos/
+```
+- **Formats:** JPG, PNG and WebP, in the folder or any sub-folder. iPhone HEIC is not supported, so export or share them as JPEG (on a Mac: Photos > File > Export, format JPEG; on an iPhone: Settings > Camera > Formats > Most Compatible for new photos).
+- **Nothing to prepare.** The Pi makes a screen-sized copy of each picture (longest side `SKYBOLT_PHOTO_MAX`), turns it upright using the phone's rotation flag, and strips all metadata, including location. Your originals are never changed. Copies are cached in `data/photo_cache` and tidied up when you delete the original. Hidden files (such as macOS `._` copies) and broken files are skipped.
+- **New photos show up** within about a minute. In **Settings > Screensaver** choose **Dashboard + photos**, **Dashboard only** or **Photos only**, and how long each photo stays (8 to 30 seconds).
+- **How it looks.** Landscape photos fill the screen with a very slow zoom; portrait photos are shown whole on the background. The pictures stay on the device, and `data/` is git-ignored, so they never reach your repository.
 
 ## Updating a deployed Pi
 From another computer on the same network or [Tailscale](https://tailscale.com/), run the update script on the Pi over SSH:
@@ -137,6 +151,7 @@ The UI uses this API, and so can your own scripts. Full interactive docs are at 
 | Chores | `GET /api/chores?start=&end=` (occurrences, repeats expanded), `GET /api/chores/open` (overdue and undated), `POST /api/chores`, `PUT`, `DELETE /api/chores/{id}`, `PATCH /api/chores/{id}` (mark a day done or not) |
 | Members | `GET`, `POST /api/members`, `PUT`, `DELETE /api/members/{id}` |
 | Weather | `GET /api/weather?units=` |
+| Photos | `GET /api/photos` (list of picture ids), `GET /api/photos/{id}` (the resized JPEG) |
 | Google | `GET /api/google/status`, `POST /api/google/client`, `GET /api/google/connect`, `POST /api/google/sync`, `PUT /api/google/calendars/{id}`, `POST /api/google/disconnect` |
 
 A chore with no person belongs to everyone. A chore with no start time is all-day. Repeating chores keep one completion record per day.
@@ -146,18 +161,18 @@ A chore with no person belongs to everyone. A chore with no start time is all-da
 uv run pytest                 # backend tests
 ./run.sh seed                 # demo data for the UI
 ```
-- The backend uses FastAPI and SQLite with only four runtime dependencies. The UI is plain ES modules with no build step, so edit a file in `ui/` and reload the page.
+- The backend uses FastAPI and SQLite with only five runtime dependencies (Pillow is used only to resize screensaver photos). The UI is plain ES modules with no build step, so edit a file in `ui/` and reload the page.
 - The UI is served with `Cache-Control: no-cache`, so a deploy shows up on the next page load.
 - Keep it lean: no video, no heavy animations and no large JavaScript bundles. The target budget is about 150 MB for the OS, 300-500 MB for the browser and 100-150 MB for the backend.
 
 ## Roadmap
-Done: Google Calendar sync, calendar views, chores, weather, on-screen keyboard, touch scrolling, screensaver, Raspberry Pi kiosk deployment.
+Done: Google Calendar sync, calendar views, chores, weather, on-screen keyboard, touch scrolling, screensaver with photo slideshow, Raspberry Pi kiosk deployment.
 
 Planned:
 - Login for the phone-friendly add and edit page, then listening on the Tailscale address only.
 - Google Tasks.
 - Meal planner, recipes and grocery list.
-- Photo slideshow, which will also become a card in the screensaver.
+- Uploading photos from a phone, once there is a login.
 - A read-only MCP server so an AI assistant can read calendars, tasks and meals, with write tools added later.
 
 ## License

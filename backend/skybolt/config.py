@@ -30,6 +30,8 @@ class Settings:
     google_credentials: Path = ROOT / "credentials.json"
     timezone: str = ""  # IANA name, e.g. America/Denver (needed for repeating Google events)
     google_sync_seconds: int = 120  # 0 turns the background sync off
+    photos_dir: Path | None = None  # screensaver pictures; defaults to a photos/ folder next to the database
+    photo_max: int = 1600  # longest side, in pixels, of the resized copies the screen loads
 
 
 def local_tz_name() -> str:
@@ -61,4 +63,6 @@ def get_settings() -> Settings:
         google_credentials=_path(os.environ.get("SKYBOLT_GOOGLE_CREDENTIALS", "credentials.json")),
         timezone=os.environ.get("SKYBOLT_TIMEZONE") or local_tz_name(),
         google_sync_seconds=int(os.environ.get("SKYBOLT_GOOGLE_SYNC_SECONDS", "120")),
+        photos_dir=_path(os.environ["SKYBOLT_PHOTOS_DIR"]) if os.environ.get("SKYBOLT_PHOTOS_DIR") else None,
+        photo_max=int(os.environ.get("SKYBOLT_PHOTO_MAX", "1600")),
     )

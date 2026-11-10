@@ -60,7 +60,7 @@ More features are expected over time, so keep the design modular.
 
 ## Status (as of 2026-11-09)
 - Done: steps 1, 3 and 6; the Calendar half of step 2 (sync is live); chores and weather from step 4. Google **Tasks** is not built yet.
-- Not started: meals and recipes, photo slideshow, phone login (step 7), MCP (step 8).
+- Not started: meals and recipes, phone login (step 7), MCP (step 8). Step 5 (photo slideshow) is done as part of the screensaver.
 - Deployed and running on the Pi 5 (Raspberry Pi OS / Debian 13, labwc, Chromium kiosk). Update with `deploy/update.sh` over SSH (see README).
 
 ## Decisions made along the way
@@ -68,6 +68,7 @@ More features are expected over time, so keep the design modular.
 - **Chores** are stored in SQLite, not Google Tasks. A chore has an optional person (none = Everyone), a date, an optional start/end time (none = all-day) and repeat none/daily/weekly. Completion is stored per day in `chore_done`, so repeats expand like events do. The UI is a Skylight-style board: a column per person plus an "Everyone" column.
 - **Touch scrolling is done in the page** (`ui/js/touchscroll.js`, loopback-only like the keyboard). Chromium's native touch panning did not work in the labwc/Wayland kiosk although taps did, so dragging a scroll area is handled with pointer events (with `touch-action:none` on `html.ts`).
 - **Screensaver** (`ui/js/screensaver.js`): after idle (default 5 min, set in Settings, stored in localStorage) it shows a clock plus rotating cards (up next, chores, week, forecast); a tap wakes it and returns to today's calendar, closing any open form or chore page. Loopback-only like the keyboard. Opacity-only motion, no blur or video, layout drifts slowly against burn-in. The planned photo slideshow should become one more card here.
+- **Photo slideshow** lives in the screensaver (`ui/js/screensaver.js` + `backend/skybolt/photos.py`): the loop is one pass of the dashboard cards, then 6 photos, repeated (modes: both / dashboard / photos, set in Settings). Photos are *copied by hand* into `data/photos` on the Pi over Tailscale: there is deliberately no upload endpoint until the phone login exists. The user approved **Pillow** as a dependency so the Pi shrinks them (longest side 1600px), applies EXIF rotation and strips all metadata (GPS) into `data/photo_cache`. Ids come from scanning the folder, so no request path reaches the disk. HEIC is unsupported (export as JPEG).
 - **UI files are served with `Cache-Control: no-cache`** so the kiosk browser never keeps stale JS/CSS after a deploy.
 - **Licence:** PolyForm Noncommercial 1.0.0 (source-available, no commercial use). The repo is public, so never commit hostnames, IPs, tokens or credentials. GitHub secret scanning and push protection are on.
 - **Remote updates** go over SSH on Tailscale (`deploy/update.sh`). The Pi has no GitHub credentials and only pulls.

@@ -182,7 +182,7 @@ html.ts, html.ts * { touch-action:none; }
 #screensaver.night{ --base:#070a12; --a:#1a2a55; --b:#2a1745; }
 #screensaver.late .ss-stage { filter:brightness(.62); }
 @keyframes ssIn { from { opacity:0; } to { opacity:1; } }
-.ss-stage { position:absolute; inset:0; padding:2.4rem 2.8rem 2.2rem; display:grid; grid-template-columns:5fr 7fr; gap:2.6rem; transition:transform 8s ease-in-out; }
+.ss-stage { position:absolute; inset:0; padding:2.4rem 2.8rem 2.2rem; display:grid; grid-template-columns:5fr 7fr; gap:2.6rem; transition:transform 8s ease-in-out, opacity 1.4s ease; }
 .ss-brand { position:absolute; left:2.8rem; top:1.6rem; width:2.4rem; height:2.4rem; border-radius:.6rem; opacity:.85; }
 .ss-left { display:flex; flex-direction:column; justify-content:center; min-width:0; }
 .ss-time { font-size:7.4rem; font-weight:200; letter-spacing:-.045em; line-height:.95; font-variant-numeric:tabular-nums; white-space:nowrap; }
@@ -235,3 +235,23 @@ html.ts, html.ts * { touch-action:none; }
 .ss-now b { display:block; font-size:3.3rem; font-weight:300; line-height:1; } .ss-now span { display:block; font-size:1.25rem; margin:.25rem 0 .35rem; }
 .ss-now small { display:block; font-size:.88rem; opacity:.66; line-height:1.45; }
 .ss-wi { font-size:2.2rem; line-height:1.2; }
+
+/* Screensaver photo phase: full-screen pictures that cross-fade, with a small clock and the next event over a soft scrim. */
+.ss-photos { position:absolute; inset:0; opacity:0; visibility:hidden; transition:opacity 1.4s ease, visibility 0s linear 1.4s; }
+#screensaver.photo .ss-photos { opacity:1; visibility:visible; transition:opacity 1.4s ease; }
+#screensaver.photo .ss-stage { opacity:0; }
+.ss-slide { position:absolute; inset:0; width:100%; height:100%; opacity:0; transition:opacity 1.6s ease; }
+.ss-slide.on { opacity:1; }
+.ss-slide.cover { object-fit:cover; animation:ssKen 22s ease-out forwards; }  /* a very slow push-in; the class stays during the fade-out so it never snaps back */
+.ss-slide.contain { object-fit:contain; }
+@keyframes ssKen { from { transform:scale(1); } to { transform:scale(1.055); } }
+.ss-scrim { position:absolute; inset:0; pointer-events:none; background:linear-gradient(to top, rgba(0,0,0,.62) 0, rgba(0,0,0,.28) 22%, transparent 42%); }
+#screensaver.late .ss-scrim { background:linear-gradient(to top, rgba(0,0,0,.7) 0, rgba(0,0,0,.45) 30%, rgba(0,0,0,.4) 100%); }
+.ss-pill { position:absolute; left:2.6rem; bottom:2.2rem; text-shadow:0 .1rem 1rem rgba(0,0,0,.55); transition:transform 8s ease-in-out; }
+.ss-ptime { font-size:3.6rem; font-weight:300; letter-spacing:-.03em; line-height:1; font-variant-numeric:tabular-nums; }
+.ss-ptime small { font-size:1.1rem; font-weight:500; letter-spacing:0; margin-left:.4rem; opacity:.75; }
+.ss-pmeta { margin-top:.35rem; font-size:1.05rem; opacity:.9; }
+.ss-next { position:absolute; right:2.6rem; bottom:2.4rem; max-width:44%; display:flex; align-items:center; gap:.6rem; padding:.65rem 1.1rem; border-radius:1.2rem;
+  background:rgba(10,16,30,.58); border:1px solid rgba(255,255,255,.14); font-size:1.05rem; font-weight:600; transition:transform 8s ease-in-out; }
+.ss-next[hidden] { display:none; }
+.ss-next span { font-size:1.2rem; flex:none; } .ss-next b { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }

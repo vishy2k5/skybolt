@@ -21,6 +21,7 @@ export const api = {
   saveChore: (c, id) => id ? call('PUT', `/api/chores/${id}`, c) : call('POST', '/api/chores', c),
   setDone: (id, done, day) => call('PATCH', `/api/chores/${id}`, { done, day }),
   deleteChore: id => call('DELETE', `/api/chores/${id}`),
+  photos: () => call('GET', '/api/photos'),
   weather: units => call('GET', '/api/weather' + (units ? `?units=${units}` : '')),
   google: () => call('GET', '/api/google/status'),
   googleClient: (client_id, client_secret) => call('POST', '/api/google/client', { client_id, client_secret }),

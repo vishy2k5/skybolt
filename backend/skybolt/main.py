@@ -10,6 +10,7 @@ from . import db as dbmod
 from .config import Settings, get_settings
 from . import weather as weathermod
 from .chores import router as chores_router
+from .photos import router as photos_router
 from .events import router as events_router
 from .google import Google, urllib_http
 from .google_routes import finish_sign_in, router as google_router
@@ -57,6 +58,7 @@ def create_app(settings: Settings | None = None, google_http=urllib_http) -> Fas
     app.include_router(chores_router)
     app.include_router(weathermod.router)
     app.include_router(google_router)
+    app.include_router(photos_router)
 
     @app.get("/", include_in_schema=False)
     def index(request: Request, state: str = "", code: str = "", error: str = ""):
