@@ -1,5 +1,6 @@
 // Shopping page: two lists side by side, "Groceries" (the store) and "To order" (online). Type an item and tap Add, tap the
-// circle to check it off, tap the name to edit. Checked items drop to the bottom until "Clear checked".
+// circle to check it off, tap the name to edit. Checked items drop to the bottom until "Clear" (which can be undone for a
+// few seconds). Under each add box are one-tap suggestions: things bought before that are not on the list now, narrowed as you type.
 import { api } from './api.js';
 import { esc, $ } from './util.js';
 import { openSheet, closeSheet } from './modal.js';
@@ -7,8 +8,9 @@ import { openSheet, closeSheet } from './modal.js';
 const LISTS = [{ id: 'grocery', name: 'Groceries', icon: '🛒', color: 'var(--ok)', hint: 'Add to the grocery list' },
                { id: 'order', name: 'To order', icon: '📦', color: 'var(--accent)', hint: 'Add something to order' }];
 
-let actions, page, timer;
-const st = { items: [] };
+const UNDO_MS = 8000, CHIPS = 12;
+let actions, page, timer, undoTimer;
+const st = { items: [], sug: { grocery: [], order: [] }, undo: null };
 
 const inList = (id, done) => st.items.filter(i => i.list === id && i.done === done);
 
@@ -18,28 +20,63 @@ function row(i) {
     <div class="si-b"><div class="ti">${esc(i.name)}</div>${i.note ? `<div class="sub">${esc(i.note)}</div>` : ''}</div></div>`;
 }
 
+// One-tap suggestions for a list, narrowed by whatever is typed (names starting with it first).
+function drawChips(id) {
+  const col = $(`[data-list="${id}"]`, page), typed = $('.sl-in', col).value.trim().toLowerCase(), box = $('.sl-sug', col);
+  const all = st.sug[id] || [];
+  const list = !typed ? all : [...all.filter(n => n.toLowerCase().startsWith(typed)), ...all.filter(n => !n.toLowerCase().startsWith(typed) && n.toLowerCase().includes(typed))];
+  const shown = list.slice(0, CHIPS);
+  box.hidden = !shown.length;
+  box.innerHTML = shown.map(n => `<button class="chip" type="button" data-chip="${esc(n)}">+ ${esc(n)}</button>`).join('');
+  box.scrollLeft = 0;
+}
+
 // Redraw only the lists and counts, never the add boxes, so whatever is being typed (and the keyboard) is left alone.
 function draw() {
   for (const L of LISTS) {
     const col = $(`[data-list="${L.id}"]`, page), open = inList(L.id, false), done = inList(L.id, true), list = $('.sl-items', col);
     const old = list.scrollTop;
     $('.sl-count', col).textContent = open.length ? `${open.length} to get` : st.items.some(i => i.list === L.id) ? 'All done 🎉' : 'Nothing yet';
-    list.innerHTML = (open.map(row).join('') || (done.length ? '' : `<div class="none">Nothing here yet.<br>Type below to add something.</div>`))
+    list.innerHTML = (open.map(row).join('') || (done.length ? '' : `<div class="none">Nothing here yet.<br>Type above to add something.</div>`))
       + (done.length ? `<div class="si-sep"><span>Got it (${done.length})</span><button data-clear="${L.id}">Clear</button></div>${done.map(row).join('')}` : '');
     list.scrollTop = old;
+    drawChips(L.id);
   }
 }
 
 async function load() {
-  try { st.items = await api.shopping(); } catch (err) { console.error(err); }
+  try { [st.items, st.sug] = await Promise.all([api.shopping(), api.shoppingSuggestions()]); } catch (err) { console.error(err); }
   if (!page.hidden) draw();
 }
 
-async function add(listId) {
-  const input = $(`[data-list="${listId}"] .sl-in`, page), name = input.value.trim();
+async function add(listId, chosen) {  // chosen = a suggestion that was tapped; otherwise whatever is in the box
+  const input = $(`[data-list="${listId}"] .sl-in`, page), name = (chosen ?? input.value).trim();
   if (!name) return;
+  const typed = input.value;
   input.value = '';
-  try { await api.addShopping(name, listId); } catch (err) { console.error(err); input.value = name; }
+  try { await api.addShopping(name, listId); } catch (err) { console.error(err); input.value = typed; }
+  await load();
+}
+
+// ---- undo for "Clear" ----------------------------------------------------------------------------------------------
+function hideUndo() { clearTimeout(undoTimer); st.undo = null; const t = $('.toast', page); if (t) t.hidden = true; }
+
+function showUndo(items) {
+  clearTimeout(undoTimer); st.undo = items;
+  const t = $('.toast', page);
+  $('.toast-t', t).textContent = items.length === 1 ? `Cleared “${items[0].name}”` : `Cleared ${items.length} items`;
+  t.hidden = false;
+  undoTimer = setTimeout(hideUndo, UNDO_MS);
+}
+
+async function undoClear() {
+  const items = st.undo; hideUndo();
+  if (!items) return;
+  const have = new Set(st.items.map(i => `${i.list}|${i.name.toLowerCase()}`));  // typed in again since: leave that one alone
+  for (const i of items) {
+    if (have.has(`${i.list}|${i.name.toLowerCase()}`)) continue;
+    try { const back = await api.addShopping(i.name, i.list, i.note); await api.checkShopping(back.id, true); } catch (err) { console.error(err); }
+  }
   await load();
 }
 
@@ -69,7 +106,7 @@ function openForm(item) {
 }
 
 function close() {
-  page.hidden = true; clearInterval(timer);
+  page.hidden = true; clearInterval(timer); hideUndo();
   history.replaceState(null, '', location.pathname + location.search);
   actions.refreshShopping();
 }
@@ -88,17 +125,27 @@ function build() {
       <section class="sl" data-list="${L.id}" style="--c:${L.color}">
         <header class="sl-h"><span class="sl-ico">${L.icon}</span><div><div class="nm">${L.name}</div><div class="sl-count"></div></div></header>
         <form class="sl-add"><input class="sl-in" maxlength="120" placeholder="${L.hint}" autocomplete="off" enterkeyhint="done"><button class="primary" type="submit">Add</button></form>
+        <div class="sl-sug" hidden></div>
         <div class="sl-items"></div>
-      </section>`).join('')}</main>`;
+      </section>`).join('')}</main>
+    <div class="toast" hidden><span class="toast-t"></span><button data-undo>Undo</button></div>`;
   document.body.append(page);
   // Tapping Add must not take focus from the box, so the on-screen keyboard stays up for the next item.
-  for (const ev of ['mousedown', 'pointerdown']) page.addEventListener(ev, e => { if (e.target.closest('.sl-add button')) e.preventDefault(); });
+  for (const ev of ['mousedown', 'pointerdown']) page.addEventListener(ev, e => { if (e.target.closest('.sl-add button, .chip')) e.preventDefault(); });
+  page.addEventListener('input', e => { const c = e.target.closest('[data-list]'); if (c && e.target.classList.contains('sl-in')) drawChips(c.dataset.list); });
   page.addEventListener('submit', e => { e.preventDefault(); add(e.target.closest('[data-list]').dataset.list); });
   page.onclick = async e => {
     const t = e.target;
     if (t.closest('[data-back]')) return close();
+    if (t.closest('[data-undo]')) return undoClear();
+    const chip = t.closest('[data-chip]');
+    if (chip) return add(chip.closest('[data-list]').dataset.list, chip.dataset.chip);
     const clear = t.closest('[data-clear]');
-    if (clear) { await api.clearShopping(clear.dataset.clear).catch(console.error); return load(); }
+    if (clear) {
+      const r = await api.clearShopping(clear.dataset.clear).catch(err => { console.error(err); return null; });
+      if (r?.items?.length) showUndo(r.items);
+      return load();
+    }
     const el = t.closest('[data-item]');
     if (!el) return;
     const item = st.items.find(i => i.id === +el.dataset.item);

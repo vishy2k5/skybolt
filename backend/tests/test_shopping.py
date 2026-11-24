@@ -91,11 +91,12 @@ def test_delete_one_and_clear_checked(client):
     o = add(client, "Z", list="order").json()["id"]
     for i in (ids[0], ids[1], o):
         client.patch(f"/api/shopping/{i}", json={"done": True})
-    assert client.delete("/api/shopping/done", params={"list": "grocery"}).json() == {"deleted": 2}
+    cleared = client.delete("/api/shopping/done", params={"list": "grocery"}).json()
+    assert cleared["deleted"] == 2 and [i["name"] for i in cleared["items"]] == ["A", "B"] and all(i["done"] for i in cleared["items"])
     assert names(client) == ["C", "Z"]  # the checked one on the other list stays
     assert client.delete(f"/api/shopping/{ids[2]}").status_code == 204
     assert client.delete(f"/api/shopping/{ids[2]}").status_code == 404
-    assert client.delete("/api/shopping/done").json() == {"deleted": 1}
+    assert client.delete("/api/shopping/done").json()["deleted"] == 1
     assert names(client) == []
 
 
@@ -109,3 +110,83 @@ def test_list_full(client, monkeypatch):
     add(client, "a"); add(client, "b")
     assert add(client, "c").status_code == 422
     assert add(client, "c", list="order").status_code == 201
+
+
+# ---- suggestions ------------------------------------------------------------------------------------------------------
+
+def sug(client):
+    return client.get("/api/shopping/suggestions").json()
+
+
+def test_suggestions_start_empty(client):
+    assert sug(client) == {"grocery": [], "order": []}
+
+
+def test_things_on_the_list_are_not_suggested_but_cleared_ones_are(client):
+    a = add(client, "Milk").json()["id"]
+    add(client, "Eggs")
+    assert sug(client)["grocery"] == []  # both are on the list already
+    client.patch(f"/api/shopping/{a}", json={"done": True})
+    assert sug(client)["grocery"] == []  # checked but still listed
+    client.delete("/api/shopping/done")
+    assert sug(client)["grocery"] == ["Milk"]
+    add(client, "milk")
+    assert sug(client)["grocery"] == []
+
+
+def test_suggestions_are_per_list_and_most_used_first(client):
+    for _ in range(3):  # buy Bread three times, Jam once
+        i = add(client, "Bread").json()["id"]
+        client.patch(f"/api/shopping/{i}", json={"done": True})
+        client.delete("/api/shopping/done")
+    j = add(client, "Jam").json()["id"]
+    k = add(client, "Cable", list="order").json()["id"]
+    for i in (j, k):
+        client.patch(f"/api/shopping/{i}", json={"done": True})
+    client.delete("/api/shopping/done")
+    assert sug(client) == {"grocery": ["Bread", "Jam"], "order": ["Cable"]}
+
+
+def test_deleting_an_item_forgets_it_but_clearing_does_not(client):
+    typo = add(client, "Mlik").json()["id"]
+    client.delete(f"/api/shopping/{typo}")
+    assert sug(client)["grocery"] == []
+    ok = add(client, "Milk").json()["id"]
+    client.patch(f"/api/shopping/{ok}", json={"done": True})
+    client.delete("/api/shopping/done")
+    assert sug(client)["grocery"] == ["Milk"]
+
+
+def test_fixing_a_typo_replaces_the_suggestion(client):
+    i = add(client, "Mlik").json()["id"]
+    client.put(f"/api/shopping/{i}", json={"name": "Milk"})
+    client.patch(f"/api/shopping/{i}", json={"done": True})
+    client.delete("/api/shopping/done")
+    assert sug(client)["grocery"] == ["Milk"]  # not "Mlik" as well
+
+
+def test_moving_an_item_moves_the_suggestion(client):
+    i = add(client, "Soap").json()["id"]
+    client.put(f"/api/shopping/{i}", json={"name": "Soap", "list": "order"})
+    client.patch(f"/api/shopping/{i}", json={"done": True})
+    client.delete("/api/shopping/done")
+    assert sug(client) == {"grocery": [], "order": ["Soap"]}
+
+
+def test_buying_a_checked_item_again_counts_as_a_use(client):
+    for n in ("A", "B"):
+        i = add(client, n).json()["id"]
+        client.patch(f"/api/shopping/{i}", json={"done": True})
+    add(client, "B")  # bought again: B now outranks A
+    client.patch(f"/api/shopping/{client.get('/api/shopping').json()[0]['id']}", json={"done": True})
+    client.delete("/api/shopping/done")
+    assert sug(client)["grocery"] == ["B", "A"]
+
+
+def test_history_is_capped(client, monkeypatch):
+    monkeypatch.setattr("skybolt.shopping.HISTORY_MAX", 2)
+    for n in ("a", "b", "c"):
+        i = add(client, n).json()["id"]
+        client.patch(f"/api/shopping/{i}", json={"done": True})
+    client.delete("/api/shopping/done")
+    assert len(sug(client)["grocery"]) == 2

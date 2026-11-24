@@ -22,6 +22,7 @@ export const api = {
   setDone: (id, done, day) => call('PATCH', `/api/chores/${id}`, { done, day }),
   deleteChore: id => call('DELETE', `/api/chores/${id}`),
   shopping: () => call('GET', '/api/shopping'),
+  shoppingSuggestions: () => call('GET', '/api/shopping/suggestions'),
   addShopping: (name, list, note = '') => call('POST', '/api/shopping', { name, list, note }),
   saveShopping: (i, id) => call('PUT', `/api/shopping/${id}`, i),
   checkShopping: (id, done) => call('PATCH', `/api/shopping/${id}`, { done }),

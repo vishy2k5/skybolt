@@ -40,6 +40,16 @@ CREATE TABLE IF NOT EXISTS shopping_items (
     added_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
+-- What has been put on the lists before, for one-tap suggestions. Survives "Clear"; forgotten when an item is deleted.
+CREATE TABLE IF NOT EXISTS shopping_history (
+    list      TEXT NOT NULL,
+    key       TEXT NOT NULL,             -- the name, case-folded
+    name      TEXT NOT NULL,             -- as last typed
+    uses      INTEGER NOT NULL DEFAULT 1,
+    last_used TEXT NOT NULL,
+    PRIMARY KEY (list, key)
+);
+
 CREATE TABLE IF NOT EXISTS events (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     title       TEXT NOT NULL,

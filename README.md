@@ -23,7 +23,7 @@
 - **Calendar.** Day, week and month views. Add, edit and delete events by tapping. Repeating events (daily, weekly, monthly, yearly) and all-day events and birthdays are supported.
 - **Two-way Google Calendar sync.** Uses your own Google Cloud project with incremental sync. Edits on the wall reach Google within seconds, and changes made on a phone show up within two minutes.
 - **Chores.** A full-screen board with a column per person and a shared "Everyone" column, a progress ring per person, and a week strip to pick the day. Chores can be timed or all-day, can repeat daily or weekly, and are ticked off per day.
-- **Shopping lists.** Two lists side by side: *Groceries* and *To order* (things to buy online). Type an item and tap Add, tap the circle when you've got it, tap the name to edit or move it to the other list. Adding something that is already on the list does not duplicate it, and checked items stay at the bottom until you tap Clear. A cart button in the header shows how many things are left.
+- **Shopping lists.** Two lists side by side: *Groceries* and *To order* (things to buy online). Type an item and tap Add, tap the circle when you've got it, tap the name to edit or move it to the other list. Under each add box are one-tap suggestions of things you've bought before, narrowed as you type, so a wall-screen keyboard is rarely needed. Adding something that is already on the list does not duplicate it, and checked items stay at the bottom until you tap Clear (an Undo bar appears for a few seconds). A cart button in the header shows how many things are left.
 - **Family members.** Each person gets a color that carries through the calendar and the chore board.
 - **Screensaver and photo frame.** After a few idle minutes the screen becomes a calm ambient dashboard: a big clock and, on cards that cross-fade, what's up next, chore progress per person, the week ahead and the forecast. If you add photos, it alternates with a full-screen slideshow that keeps the time and your next event in the corner. The background follows the time of day and dims at night. Tap anywhere to open today's calendar.
 - **Weather.** Current conditions, hourly and 7-day forecast from [Open-Meteo](https://open-meteo.com/). No account or API key.
@@ -150,7 +150,7 @@ The UI uses this API, and so can your own scripts. Full interactive docs are at 
 | Health | `GET /api/health` |
 | Events | `GET /api/events?start=&end=`, `POST /api/events`, `GET`, `PUT`, `DELETE /api/events/{id}` |
 | Chores | `GET /api/chores?start=&end=` (occurrences, repeats expanded), `GET /api/chores/open` (overdue and undated), `POST /api/chores`, `PUT`, `DELETE /api/chores/{id}`, `PATCH /api/chores/{id}` (mark a day done or not) |
-| Shopping | `GET /api/shopping?list=` (`grocery` or `order`), `POST /api/shopping`, `PUT`, `DELETE /api/shopping/{id}`, `PATCH /api/shopping/{id}` (check or uncheck), `DELETE /api/shopping/done?list=` (clear checked) |
+| Shopping | `GET /api/shopping?list=` (`grocery` or `order`), `POST /api/shopping`, `PUT`, `DELETE /api/shopping/{id}`, `PATCH /api/shopping/{id}` (check or uncheck), `DELETE /api/shopping/done?list=` (clear checked; returns what it removed so it can be undone), `GET /api/shopping/suggestions` (names bought before, per list) |
 | Members | `GET`, `POST /api/members`, `PUT`, `DELETE /api/members/{id}` |
 | Weather | `GET /api/weather?units=` |
 | Photos | `GET /api/photos` (list of picture ids), `GET /api/photos/{id}` (the resized JPEG) |
