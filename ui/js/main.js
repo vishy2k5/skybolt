@@ -6,6 +6,7 @@ import { rangeFor, rangeTitle, renderView } from './views.js';
 import { renderChip, openWeather } from './weather.js';
 import { openChores, closeChores } from './chores.js';
 import { closeSheet } from './modal.js';
+import { openShopping, closeShopping } from './shopping.js';
 import { available as ssAvailable, init as initScreensaver, show as showScreensaver } from './screensaver.js';
 import { openEventForm } from './eventform.js';
 import { openSettings } from './settings.js';
@@ -43,6 +44,11 @@ async function refreshChores() {  // badge = chores still to do today, plus over
   const b = $('#chores-btn .badge');
   b.hidden = !state.choresLeft; b.textContent = state.choresLeft;
 }
+async function refreshShopping() {  // badge = things still to get, on both lists
+  try { state.shopLeft = (await api.shopping()).filter(i => !i.done).length; } catch (err) { console.error(err); }
+  const b = $('#shop-btn .badge');
+  b.hidden = !state.shopLeft; b.textContent = state.shopLeft;
+}
 async function refreshGoogle() {
   try { state.google = await api.google(); } catch { /* keep last */ }
 }
@@ -51,7 +57,7 @@ async function refreshWeather() {
     state.units ||= state.weather.units.temp === '°F' ? 'imperial' : 'metric'; } catch { /* keep last */ }
   renderChip($('#wx-chip'), state.weather);
 }
-const actions = { reload: () => loadEvents(true), refreshChores, refreshGoogle };
+const actions = { reload: () => loadEvents(true), refreshChores, refreshShopping, refreshGoogle };
 
 function tick() {
   const n = new Date();
@@ -75,6 +81,7 @@ $('#views').onclick = e => { const b = e.target.closest('[data-view]'); if (b) s
 $('#add-btn').onclick = () => openEventForm(state, actions, null, state.view === 'day' ? state.cursor : null);
 $('#gear-btn').onclick = () => openSettings(state, { onUnits: setUnits, onClose: async () => { await Promise.all([refreshChores(), refreshGoogle()]); loadEvents(true); } });
 $('#chores-btn').onclick = () => openChores(state, actions);
+$('#shop-btn').onclick = () => openShopping(state, actions);
 $('#ss-btn').hidden = !ssAvailable;  // wall display only, like the screensaver itself
 $('#ss-btn').onclick = () => showScreensaver();
 async function setUnits(u, reopen = true) {
@@ -98,16 +105,17 @@ cal.onclick = async e => {
 };
 
 // Idle for a few minutes: ambient dashboard; tapping it returns to today's calendar.
-initScreensaver({ state, onWake: () => { closeSheet(); closeChores(); state.cursor = new Date(); loadEvents(); } });
+initScreensaver({ state, onWake: () => { closeSheet(); closeChores(); closeShopping(); state.cursor = new Date(); loadEvents(); } });
 
 tick(); setInterval(tick, 10_000);
-await Promise.all([refreshChores(), refreshWeather(), refreshGoogle()]);
+await Promise.all([refreshChores(), refreshShopping(), refreshWeather(), refreshGoogle()]);
 await loadEvents();
 setInterval(refreshWeather, 10 * 60_000);
-setInterval(async () => { await refreshGoogle(); loadEvents(true); refreshChores(); }, 2 * 60_000);
+setInterval(async () => { await refreshGoogle(); loadEvents(true); refreshChores(); refreshShopping(); }, 2 * 60_000);
 const open = qs.get('open');
 if (open === 'screensaver') showScreensaver();
 if (open === 'weather') $('#wx-chip').click();
 if (open === 'chores' || location.hash === '#chores') $('#chores-btn').click();
+if (open === 'shopping' || location.hash === '#shopping') $('#shop-btn').click();
 if (open === 'settings') $('#gear-btn').click();
 if (open === 'add') $('#add-btn').click();

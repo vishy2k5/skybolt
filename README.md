@@ -23,6 +23,7 @@
 - **Calendar.** Day, week and month views. Add, edit and delete events by tapping. Repeating events (daily, weekly, monthly, yearly) and all-day events and birthdays are supported.
 - **Two-way Google Calendar sync.** Uses your own Google Cloud project with incremental sync. Edits on the wall reach Google within seconds, and changes made on a phone show up within two minutes.
 - **Chores.** A full-screen board with a column per person and a shared "Everyone" column, a progress ring per person, and a week strip to pick the day. Chores can be timed or all-day, can repeat daily or weekly, and are ticked off per day.
+- **Shopping lists.** Two lists side by side: *Groceries* and *To order* (things to buy online). Type an item and tap Add, tap the circle when you've got it, tap the name to edit or move it to the other list. Adding something that is already on the list does not duplicate it, and checked items stay at the bottom until you tap Clear. A cart button in the header shows how many things are left.
 - **Family members.** Each person gets a color that carries through the calendar and the chore board.
 - **Screensaver and photo frame.** After a few idle minutes the screen becomes a calm ambient dashboard: a big clock and, on cards that cross-fade, what's up next, chore progress per person, the week ahead and the forecast. If you add photos, it alternates with a full-screen slideshow that keeps the time and your next event in the corner. The background follows the time of day and dims at night. Tap anywhere to open today's calendar.
 - **Weather.** Current conditions, hourly and 7-day forecast from [Open-Meteo](https://open-meteo.com/). No account or API key.
@@ -49,10 +50,10 @@
 ```
 - **Backend** runs as a background service, talks to Google and Open-Meteo, stores data in SQLite and serves a local HTTP API. It never draws the screen.
 - **UI** is a static web page served by the backend. It only talks to the backend API, so either side can move to another device later.
-- **Chores and members** live in SQLite on the device. They are not synced to Google.
+- **Chores, shopping lists and members** live in SQLite on the device. They are not synced to Google.
 
 ```
-backend/skybolt/   FastAPI app: events, chores, members, weather, Google sync
+backend/skybolt/   FastAPI app: events, chores, shopping, members, weather, Google sync
 backend/tests/     pytest suite
 ui/                index.html, style.css and ES modules under js/
 deploy/            install.sh, update.sh, kiosk script and systemd units
@@ -65,7 +66,7 @@ Requires [uv](https://docs.astral.sh/uv/) (Python 3.11 or newer is installed for
 ./run.sh seed       # in another terminal: load demo data (once)
 uv run pytest       # run the tests
 ```
-Interactive API docs are at http://127.0.0.1:8000/docs. Screens can be opened directly: `/?view=month`, `/?open=weather`, `/?open=chores`, `/?open=settings`, `/?open=add`.
+Interactive API docs are at http://127.0.0.1:8000/docs. Screens can be opened directly: `/?view=month`, `/?open=weather`, `/?open=chores`, `/?open=shopping`, `/?open=settings`, `/?open=add`.
 
 ## Configuration
 Settings come from environment variables or a `.env` file in the project root. Copy [.env.example](.env.example) to `.env` and change what you need. Everything is optional.
@@ -133,7 +134,7 @@ ssh -t <user>@<pi> '<path to skybolt>/deploy/update.sh'
 ```
 It pulls the latest code from GitHub, syncs dependencies, restarts the backend and reloads the kiosk. The `-t` is needed because the restart uses `sudo`. The script stops if the Pi has local commits that diverge from GitHub; fix that on the Pi first (`git pull --rebase`).
 
-Chores and members are stored in SQLite and migrated automatically on start-up when the schema changes.
+Chores, shopping items and members are stored in SQLite and migrated automatically on start-up when the schema changes.
 
 ## Security and privacy
 - **No third-party services.** All data stays on your devices. There are no analytics, ads or tracking. The only outbound requests are to Google (Calendar API) and Open-Meteo (weather, which receives your configured coordinates). See [PRIVACY.md](PRIVACY.md).
@@ -149,6 +150,7 @@ The UI uses this API, and so can your own scripts. Full interactive docs are at 
 | Health | `GET /api/health` |
 | Events | `GET /api/events?start=&end=`, `POST /api/events`, `GET`, `PUT`, `DELETE /api/events/{id}` |
 | Chores | `GET /api/chores?start=&end=` (occurrences, repeats expanded), `GET /api/chores/open` (overdue and undated), `POST /api/chores`, `PUT`, `DELETE /api/chores/{id}`, `PATCH /api/chores/{id}` (mark a day done or not) |
+| Shopping | `GET /api/shopping?list=` (`grocery` or `order`), `POST /api/shopping`, `PUT`, `DELETE /api/shopping/{id}`, `PATCH /api/shopping/{id}` (check or uncheck), `DELETE /api/shopping/done?list=` (clear checked) |
 | Members | `GET`, `POST /api/members`, `PUT`, `DELETE /api/members/{id}` |
 | Weather | `GET /api/weather?units=` |
 | Photos | `GET /api/photos` (list of picture ids), `GET /api/photos/{id}` (the resized JPEG) |
@@ -166,12 +168,12 @@ uv run pytest                 # backend tests
 - Keep it lean: no video, no heavy animations and no large JavaScript bundles. The target budget is about 150 MB for the OS, 300-500 MB for the browser and 100-150 MB for the backend.
 
 ## Roadmap
-Done: Google Calendar sync, calendar views, chores, weather, on-screen keyboard, touch scrolling, screensaver with photo slideshow, Raspberry Pi kiosk deployment.
+Done: Google Calendar sync, calendar views, chores, shopping lists, weather, on-screen keyboard, touch scrolling, screensaver with photo slideshow, Raspberry Pi kiosk deployment.
 
 Planned:
 - Login for the phone-friendly add and edit page, then listening on the Tailscale address only.
 - Google Tasks.
-- Meal planner, recipes and grocery list.
+- Meal planner and recipes, feeding the grocery list.
 - Uploading photos from a phone, once there is a login.
 - A read-only MCP server so an AI assistant can read calendars, tasks and meals, with write tools added later.
 

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class EventIn(BaseModel):
@@ -72,3 +72,32 @@ class ChoreOut(ChoreIn):
 class ChoreDone(BaseModel):
     done: bool
     day: date | None = None  # required for repeating chores: which day was ticked off
+
+
+class ShoppingIn(BaseModel):
+    """One thing to buy. list: 'grocery' = at the store, 'order' = to order online."""
+    name: str = Field(min_length=1, max_length=120)
+    note: str = Field(default="", max_length=200)  # quantity, brand, link: free text
+    list: Literal["grocery", "order"] = "grocery"
+
+    @field_validator("name", "note")
+    @classmethod
+    def _strip(cls, v: str) -> str:
+        return v.strip()
+
+    @field_validator("name")
+    @classmethod
+    def _named(cls, v: str) -> str:
+        if not v:
+            raise ValueError("name must not be blank")
+        return v
+
+
+class ShoppingOut(ShoppingIn):
+    id: int
+    done: bool = False
+    done_at: str | None = None
+
+
+class ShoppingDone(BaseModel):
+    done: bool

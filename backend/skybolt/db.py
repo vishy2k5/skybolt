@@ -29,6 +29,17 @@ CREATE TABLE IF NOT EXISTS chore_done (
     PRIMARY KEY (chore_id, day)
 );
 
+-- Shopping lists: 'grocery' (the store) and 'order' (things to order online). Checked items stay until cleared.
+CREATE TABLE IF NOT EXISTS shopping_items (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    name     TEXT NOT NULL,
+    note     TEXT NOT NULL DEFAULT '',
+    list     TEXT NOT NULL DEFAULT 'grocery',
+    done     INTEGER NOT NULL DEFAULT 0,
+    done_at  TEXT,
+    added_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
 CREATE TABLE IF NOT EXISTS events (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     title       TEXT NOT NULL,

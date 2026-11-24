@@ -16,6 +16,7 @@ from .google import Google, urllib_http
 from .google_routes import finish_sign_in, router as google_router
 from .gsync import Syncer
 from .members import router as members_router
+from .shopping import router as shopping_router
 
 
 # The UI is local and small: make the browser revalidate it on every load so a deploy shows up at once
@@ -56,6 +57,7 @@ def create_app(settings: Settings | None = None, google_http=urllib_http) -> Fas
     app.include_router(events_router)
     app.include_router(members_router)
     app.include_router(chores_router)
+    app.include_router(shopping_router)
     app.include_router(weathermod.router)
     app.include_router(google_router)
     app.include_router(photos_router)
